@@ -264,6 +264,20 @@ const BASE_BAND = 0.16
 /** Where in the sprite to look for the lid/base boundary. */
 const HINGE_BAND = [0.3, 0.85]
 
+/**
+ * Where the tray's floor ends and its front wall begins, as a share of height.
+ *
+ * This is a depth boundary, not a shape one: everything above it - the lid and
+ * the inside of the tray - is *behind* a pizza lying in the box, and the strip
+ * below it is the near wall, which is in front of it. Splitting there is what
+ * lets the pizza go into the box rather than appear next to it.
+ *
+ * Measured off the art by eye, unlike the hinge, because there is no step in
+ * the silhouette here to find - the rim is a change of shading inside an
+ * unbroken outline.
+ */
+const FRONT_SPLIT = 0.83
+
 /** The row where the silhouette suddenly widens: the top of the base. */
 function findHinge({ data, width: w }, trim) {
   const widths = []
@@ -353,6 +367,7 @@ async function buildBox(box) {
   // width jumps, and it is unmistakable - 508px to 550px from one row to the
   // next on this art.
   box.hinge = findHinge(frames[0].img, frames[0].trim)
+  box.front = FRONT_SPLIT
 
   // Every frame is scaled so its base comes out the same width.
   //
@@ -441,7 +456,7 @@ async function buildSides(sides) {
 
 const data = JSON.parse(await readFile(propData, 'utf8'))
 const counts = { ...data.toppings }
-const box = { frames: 0, hinge: 0.62 }
+const box = { frames: 0, hinge: 0.62, front: FRONT_SPLIT }
 const sides = { fries: false, cola: false }
 
 console.log('toppings:')

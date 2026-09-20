@@ -28,7 +28,8 @@
   },
   "box": {
     "frames": 2,
-    "hinge": 0.6378
+    "hinge": 0.6378,
+    "front": 0.83
   },
   "toppings": {
     "olives": 13,

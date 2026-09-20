@@ -113,6 +113,23 @@ const SCENES = {
     ['click', '.cta--go'],
     ['at', 2.8, 'l-order'],
   ],
+  /**
+   * One frame of the add-to-order sequence, at AT seconds after the tap.
+   *
+   *   AT=0.8 node tools/shot.mjs land 390 844
+   *
+   * One capture per run, because `at` can only wait and never rewind: a scene
+   * that takes several shots drifts later with every one of them, and this is
+   * for pinning an exact moment.
+   */
+  land: [
+    ['wait', 4],
+    ['click', '.rail__step|3'],
+    ['wait', 0.5],
+    ['click', '.cta--go'],
+    ['at', Number(process.env.AT || 0.8), `t${process.env.AT || 0.8}`],
+  ],
+
   /** Two pizzas and a meal: the pile, and the sides beside it. */
   pile: [
     ['wait', 4],

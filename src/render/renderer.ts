@@ -57,6 +57,8 @@ export interface SceneState {
   boxIn: number
   /** 0 lid up, 1 lid shut. Picks a frame; it does not cross-fade. */
   lid: number
+  /** 0 the pizza is where it always lands, 1 it is down inside the box. */
+  dropIn: number
   /** 0 the filled box is on the counter, 1 it has joined the stack behind. */
   boxAway: number
   /** Boxes already in the stack. Set directly, never tweened. */
@@ -76,6 +78,7 @@ export const initialState = (): SceneState => ({
   size: 1,
   boxIn: 0,
   lid: 0,
+  dropIn: 0,
   boxAway: 0,
   stack: 0,
   sides: 0,
@@ -102,6 +105,16 @@ const PEEL_DROP = 18
  * that reads as a crate.
  */
 const BOX = { x: REST.x, y: REST.y + 104, width: 545, offRight: 1200 }
+
+/**
+ * Where the pizza ends up once it is lying in the box, and how big it is then.
+ *
+ * Lower and smaller than where it lands on the peel: the tray's floor is
+ * further from the camera than the blade was, and a 12" pizza has to fit
+ * between the tray's walls. Both are eased in over the last third of the toss,
+ * so the pizza settles down into the box rather than landing beside it.
+ */
+const BOX_PIZZA = { y: 640, scale: 0.75 }
 
 /**
  * Where finished boxes wait: the back of the counter, behind the glass.
@@ -334,6 +347,16 @@ export class SceneRenderer {
     const pose = poseAt(s.p)
     const diameter = PIZZA_DIAMETER * s.size
 
+    // Where the pizza actually is, which is not where the toss alone would put
+    // it: over the last of the arc it is also settling down into the box.
+    // Worked out once here because the shadow, the sprite and every topping
+    // lying on it all have to agree about it.
+    const place = {
+      x: pose.x,
+      y: pose.y + (BOX_PIZZA.y - REST.y) * s.dropIn,
+      diameter: diameter * (1 - (1 - BOX_PIZZA.scale) * s.dropIn),
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.globalAlpha = 1
     ctx.globalCompositeOperation = 'source-over'
@@ -362,15 +385,18 @@ export class SceneRenderer {
     ctx.save()
     ctx.translate(0, -this.lift)
 
+    // The box in two passes, with the pizza between them - which is what being
+    // *in* a box means. Behind: the lid standing up at the back, and the floor
+    // of the tray. In front: the tray's near wall, which the pizza sinks
+    // behind as it settles in.
+    this.drawBox(s, 'back')
     this.drawPeel(s, pose, diameter)
     if (s.pizzaOut < 1) {
-      this.drawShadow(pose, diameter, s)
-      this.drawPizza(pose, flavor, bitmaps, diameter)
-      this.drawToppings(dt, pose, flavor, diameter)
+      this.drawShadow(pose, place, s)
+      this.drawPizza(pose, place, flavor, bitmaps)
+      this.drawToppings(dt, pose, place, flavor)
     }
-    // The box being filled is nearest the camera, so it is drawn over
-    // everything - and over the pizza, which is what a lid coming down is.
-    this.drawBox(s)
+    this.drawBox(s, 'front')
     ctx.restore()
 
     this.drawFlash(s)
@@ -458,12 +484,15 @@ export class SceneRenderer {
     ctx.restore()
   }
 
-  private drawShadow(pose: ReturnType<typeof poseAt>, diameter: number, s: SceneState) {
-    const a = pose.shadow.alpha * (1 - s.peelOut * 0.5)
+  private drawShadow(pose: ReturnType<typeof poseAt>, place: Place, s: SceneState) {
+    // Gone by the time the pizza is in the box: that shadow falls on the
+    // counter, and once the pizza is inside there is a cardboard floor a few
+    // inches under it instead.
+    const a = pose.shadow.alpha * (1 - s.peelOut * 0.5) * (1 - s.dropIn)
     if (a <= 0.002) return
     const { ctx } = this
-    const rx = (diameter / PIZZA_DIAMETER) * pose.shadow.rx
-    const ry = (diameter / PIZZA_DIAMETER) * pose.shadow.ry
+    const rx = (place.diameter / PIZZA_DIAMETER) * pose.shadow.rx
+    const ry = (place.diameter / PIZZA_DIAMETER) * pose.shadow.ry
     const g = ctx.createRadialGradient(
       pose.shadow.x,
       pose.shadow.y,
@@ -486,17 +515,17 @@ export class SceneRenderer {
 
   private drawPizza(
     pose: ReturnType<typeof poseAt>,
+    place: Place,
     flavor: Flavor,
-    bitmaps: ImageBitmap[],
-    diameter: number
+    bitmaps: ImageBitmap[]
   ) {
     const { ctx } = this
-    const travel = this.prev ? Math.hypot(pose.x - this.prev.x, pose.y - this.prev.y) : 0
+    const travel = this.prev ? Math.hypot(place.x - this.prev.x, place.y - this.prev.y) : 0
     const stamps = this.reduceMotion || travel < BLUR_FLOOR ? 1 : BLUR_STAMPS
     this.settled = stamps === 1
     const reach = travel > 0 ? Math.min(BLUR_REACH, BLUR_MAX / travel) : 0
-    const vx = this.prev ? (pose.x - this.prev.x) * reach : 0
-    const vy = this.prev ? (pose.y - this.prev.y) * reach : 0
+    const vx = this.prev ? (place.x - this.prev.x) * reach : 0
+    const vy = this.prev ? (place.y - this.prev.y) * reach : 0
 
     // A flavour that is still streaming in has only pose 1. Falling back to it
     // means an early tap cuts between flavours instead of tumbling, which is
@@ -510,12 +539,12 @@ export class SceneRenderer {
     // scaled by what actually arrived. Everything else the renderer reads off
     // the metadata is either a ratio or an angle, and neither has a size.
     const ms = bmp.width / meta.width
-    const spriteScale = (diameter * pose.scale) / (meta.major * ms)
+    const spriteScale = (place.diameter * pose.scale) / (meta.major * ms)
 
     ctx.save()
-    ctx.translate(pose.x, pose.y)
+    ctx.translate(place.x, place.y)
     ctx.scale(1, pose.squash)
-    ctx.translate(-pose.x, -pose.y)
+    ctx.translate(-place.x, -place.y)
 
     // 1/(i+1) per stamp accumulates into a running mean of all of them - the
     // actual definition of motion blur, and opaque wherever they overlap. The
@@ -524,11 +553,11 @@ export class SceneRenderer {
     for (let i = 0; i < stamps; i++) {
       const o = stamps === 1 ? 0 : i / (stamps - 1) - 0.5
       ctx.globalAlpha = 1 / (i + 1)
-      this.stamp(bmp, meta.cx * ms, meta.cy * ms, pose.x - vx * o, pose.y - vy * o, spriteScale)
+      this.stamp(bmp, meta.cx * ms, meta.cy * ms, place.x - vx * o, place.y - vy * o, spriteScale)
     }
     ctx.restore()
     ctx.globalAlpha = 1
-    this.prev = { x: pose.x, y: pose.y }
+    this.prev = { x: place.x, y: place.y }
   }
 
   private stamp(bmp: ImageBitmap, cx: number, cy: number, x: number, y: number, scale: number) {
@@ -556,15 +585,15 @@ export class SceneRenderer {
   private drawToppings(
     dt: number,
     pose: ReturnType<typeof poseAt>,
-    flavor: Flavor,
-    diameter: number
+    place: Place,
+    flavor: Flavor
   ) {
     if (!this.pieces.length) return
     const { ctx } = this
 
     const index = this.assets.poses[flavor]?.[pose.index] ? pose.index : 0
     const meta = this.meta(flavor)[index].meta
-    const shown = diameter * pose.scale
+    const shown = place.diameter * pose.scale
     const rx = shown / 2
     // How flat the pizza is lying, from the camera's point of view.
     const squash = meta.minor / meta.major
@@ -574,9 +603,9 @@ export class SceneRenderer {
     const size = (shown / PIZZA_DIAMETER) * PIECE_SCALE
 
     ctx.save()
-    ctx.translate(pose.x, pose.y)
+    ctx.translate(place.x, place.y)
     ctx.scale(1, pose.squash)
-    ctx.translate(-pose.x, -pose.y)
+    ctx.translate(-place.x, -place.y)
 
     for (const piece of this.pieces) {
       piece.t += dt
@@ -586,8 +615,8 @@ export class SceneRenderer {
       // Where on the pizza it belongs, wherever the pizza currently is.
       const ex = piece.u * rx
       const ey = piece.v * ry
-      const x = pose.x + ex * cos - ey * sin
-      const y = pose.y + ex * sin + ey * cos
+      const x = place.x + ex * cos - ey * sin
+      const y = place.y + ex * sin + ey * cos
 
       const falling = t < FALL
       // Gravity on the way down, then a squash on impact that settles out.
@@ -640,7 +669,7 @@ export class SceneRenderer {
    * as it goes, because that is what moving away from a camera does - and
    * `boxAway` is that journey.
    */
-  private drawBox(s: SceneState) {
+  private drawBox(s: SceneState, pass: 'back' | 'front') {
     const frames = this.assets.boxFrames
     if (!frames.length || s.boxIn <= 0.001) return
     const { ctx } = this
@@ -664,49 +693,65 @@ export class SceneRenderer {
     // Both frames share one canvas with the base registered, so one hinge and
     // one scale serve both.
     const hinge = Math.round(PROPS.box.hinge * open.height)
+    const front = Math.round(PROPS.box.front * open.height)
     const hingeY = top + hinge * k
 
     const arriving = Math.min(1, s.boxIn * 3)
     const shutIn = smoothstep(0.55, 1, s.lid)
 
     ctx.save()
-
-    // The base: the part below the hinge, which never moves.
     ctx.globalAlpha = arriving
-    ctx.drawImage(
-      open,
-      0,
-      hinge,
-      open.width,
-      open.height - hinge,
-      left,
-      hingeY,
-      open.width * k,
-      (open.height - hinge) * k
-    )
 
-    // The lid: the part above it, falling.
-    const fall = Math.cos(Math.min(1, s.lid) * (Math.PI / 2))
-    const lidHeight = hinge * k * fall
-    if (lidHeight > 0.5 && shutIn < 1) {
-      ctx.globalAlpha = arriving * (1 - shutIn)
+    if (pass === 'back') {
+      // The floor of the tray, which the pizza comes down onto.
       ctx.drawImage(
         open,
         0,
-        0,
-        open.width,
         hinge,
+        open.width,
+        front - hinge,
         left,
-        hingeY - lidHeight,
+        hingeY,
         open.width * k,
-        lidHeight
+        (front - hinge) * k
       )
-    }
 
-    // And the box shut, over the pizza.
-    if (shutIn > 0.001 && shut !== open) {
-      ctx.globalAlpha = arriving * shutIn
-      ctx.drawImage(shut, left, top, shut.width * k, shut.height * k)
+      // The lid, standing at the back and falling towards the hinge.
+      const fall = Math.cos(Math.min(1, s.lid) * (Math.PI / 2))
+      const lidHeight = hinge * k * fall
+      if (lidHeight > 0.5 && shutIn < 1) {
+        ctx.globalAlpha = arriving * (1 - shutIn)
+        ctx.drawImage(
+          open,
+          0,
+          0,
+          open.width,
+          hinge,
+          left,
+          hingeY - lidHeight,
+          open.width * k,
+          lidHeight
+        )
+      }
+    } else {
+      // The near wall of the tray, in front of everything in the box.
+      ctx.drawImage(
+        open,
+        0,
+        front,
+        open.width,
+        open.height - front,
+        left,
+        top + front * k,
+        open.width * k,
+        (open.height - front) * k
+      )
+
+      // And the box shut, over the pizza and over its own near wall.
+      if (shutIn > 0.001 && shut !== open) {
+        ctx.globalAlpha = arriving * shutIn
+        ctx.drawImage(shut, left, top, shut.width * k, shut.height * k)
+      }
     }
 
     ctx.restore()
@@ -783,6 +828,13 @@ export class SceneRenderer {
     ctx.fillRect(-PLATE_IMAGE.left, -PLATE_IMAGE.top, PLATE_IMAGE.width, PLATE_IMAGE.height)
     ctx.restore()
   }
+}
+
+/** Where the pizza is being drawn this frame, and how big. */
+interface Place {
+  x: number
+  y: number
+  diameter: number
 }
 
 interface Piece {

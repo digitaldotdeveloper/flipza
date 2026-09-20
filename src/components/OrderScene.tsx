@@ -241,19 +241,30 @@ export default function OrderScene() {
                   resolve()
                 },
               })
-              .to(state, { boxIn: 1, duration: 0.55, ease: 'power2.out' }, 0)
-              .to(state, { peelOut: 1, duration: 0.42, ease: 'power2.inOut' }, 0.12)
-              .to(state, { p: target, duration: FLIP_DURATION, ease: 'none' }, 0.18)
-              // The lid. `lid` picks a frame rather than fading between two, so
-              // this tween is playing an animation, not dissolving one image
-              // into another - and it eases *in*, because a lid falls.
-              .to(state, { lid: 1, duration: 0.44, ease: 'power2.in' }, 0.82)
+              // The box arrives while the pizza is still in the air.
+              .to(state, { boxIn: 1, duration: 0.52, ease: 'power2.out' }, 0)
+              .to(state, { peelOut: 1, duration: 0.4, ease: 'power2.inOut' }, 0.1)
+              .to(state, { p: target, duration: 0.66, ease: 'none' }, 0.16)
+              // The last of the arc is also a descent: over these four tenths
+              // of a second the pizza stops heading for the spot it always
+              // lands on and heads for the floor of the tray instead, shrinking
+              // as it goes because the tray floor is further from the camera.
+              // Eased *in*, so it drops rather than drifts.
+              .to(state, { dropIn: 1, duration: 0.4, ease: 'power2.in' }, 0.58)
+              // Then nothing at all for four tenths of a second.
+              //
+              // This is the whole point of the sequence and it used to be
+              // twenty milliseconds long: the lid started falling the instant
+              // the pizza touched down, so the one frame worth watching - the
+              // pizza you just built, lying in an open box - was never
+              // actually on screen. A beat of stillness is the animation.
+              .to(state, { lid: 1, duration: 0.46, ease: 'power2.in' }, 1.42)
               // Hidden under a shut lid, so this is free - and it has to happen
               // before the box travels, or the pizza would stay behind on the
               // counter while its box left without it.
-              .set(state, { pizzaOut: 1 }, 1.28)
+              .set(state, { pizzaOut: 1 }, 1.9)
               // Back down the counter to the pile, getting smaller as it goes.
-              .to(state, { boxAway: 1, duration: 0.62, ease: 'power2.inOut' }, 1.34)
+              .to(state, { boxAway: 1, duration: 0.6, ease: 'power2.inOut' }, 1.96)
               .add(() => {
                 // The travelling box lands exactly on the next free slot, so
                 // handing it over to the pile changes nothing on screen.
@@ -261,10 +272,11 @@ export default function OrderScene() {
                 state.boxIn = 0
                 state.boxAway = 0
                 state.lid = 0
+                state.dropIn = 0
                 state.pizzaOut = 0
                 renderer.clearToppings()
-              }, 1.96)
-              .to(state, { peelOut: 0, duration: 0.42, ease: 'power2.out' }, 1.98)
+              }, 2.56)
+              .to(state, { peelOut: 0, duration: 0.42, ease: 'power2.out' }, 2.58)
           })
         },
         /** The fries and the cola, set down beside the pile. */

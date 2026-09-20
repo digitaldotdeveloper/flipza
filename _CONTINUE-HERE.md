@@ -173,6 +173,31 @@ where the toppings should be hidden. Check that before generating a tenth pose.
 The spin of the pizza about its own axis is not modelled, and does not need to
 be: the scatter is random, so there is no pattern to give it away.
 
+## Into the box
+
+The add-to-order sequence is the one moment worth watching, and for a while it
+was not watchable. Three things were wrong and all three are worth keeping in
+mind if it is ever re-timed:
+
+- **The box was drawn over the pizza.** One `drawImage` of the whole box, after
+  the pizza - so the lid standing at the back covered the pizza, and so did the
+  inside of the tray. It read as a box appearing in front of a pizza. The box
+  is now drawn in **two passes** with the pizza between them, split at the
+   line from prop-data: the lid and the tray floor behind, the tray's
+  near wall in front. That is what being *in* a box means.
+- **The pizza landed where it always lands.** The toss ended at the same rest
+  point as every other toss and the box happened to be around it.  now
+  eases the last of the arc down to the tray floor and shrinks the pizza to fit
+  between the tray walls, so it settles *into* the box.
+- **The lid started closing twenty milliseconds after the pizza landed.** The
+  one frame worth seeing - the pizza you just built, in an open box - was never
+  on screen. There is now a held beat of four tenths of a second where nothing
+  moves at all. The stillness is the animation.
+
+The contact shadow fades out with : that shadow falls on the counter,
+and once the pizza is in the box there is a cardboard floor a few inches under
+it instead.
+
 ## The lid
 
 It is not a set of photographs, and not for want of trying. Two batches were

@@ -88,7 +88,10 @@ await send('Page.navigate', { url: `${BASE}?motion=on&cb=${Date.now()}` })
 await sleep(Number(waitFor) * 1000)
 
 const r = await send('Runtime.evaluate', {
-  expression: `JSON.stringify((() => { try { return (${expr}) } catch (e) { return 'ERROR: ' + e.message } })())`,
+  // Resolved *before* it is stringified, so an async expression returns what it
+  // resolves to rather than the JSON of a pending promise, which is `{}` and
+  // looks exactly like an object with nothing in it.
+  expression: `Promise.resolve((async () => { try { return (${expr}) } catch (e) { return 'ERROR: ' + e.message } })()).then(v => JSON.stringify(v))`,
   returnByValue: true,
   awaitPromise: true,
 })

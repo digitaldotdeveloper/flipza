@@ -39,10 +39,12 @@ interface PropData {
   fire: FireData
   plate: PlateData
   /**
-   * The box: frame 0 has its lid up, the last has it shut, and `hinge` is
-   * where the lid meets the base as a fraction of the sprite's height.
+   * The box. Frame 0 has its lid up and the last has it shut; `hinge` is where
+   * the lid meets the tray and `front` where the tray's floor becomes its near
+   * wall - both as a fraction of the sprite's height. The two lines are what
+   * let a pizza be drawn inside the box rather than in front of it.
    */
-  box: { frames: number; hinge: number }
+  box: { frames: number; hinge: number; front: number }
   /** Whether the upsell props exist. */
   sides: { fries: boolean; cola: boolean }
   /** Pieces cut from each topping sheet, keyed by extra id. */
