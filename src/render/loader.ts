@@ -81,6 +81,8 @@ export interface LoadHandle {
   ensure(flavor: Flavor): Promise<void>
   /** Fetches the topping pieces now - called when the extras step opens. */
   ensureToppings(): Promise<void>
+  /** Fetches the box and the sides now - awaited before they are needed. */
+  ensureProps(): Promise<void>
   /** Resolves when everything has been decoded. */
   complete: Promise<void>
   cancel(): void
@@ -184,21 +186,35 @@ export async function loadScene(
   const complete = (async () => {
     await loadFire()
     if (cancelled) return
+
+    // Then the small things that cannot degrade, before the big thing that
+    // can.
+    //
+    // The poses are 2MB and the toppings and props together are half a
+    // megabyte, so by size the poses look like the thing to get out of the way
+    // first. By *behaviour* it is the other way round: a pose that has not
+    // arrived falls back to pose 1 and jumps the queue the moment it is
+    // tapped, so the worst case is a cut instead of a tumble. A topping that
+    // has not arrived does not rain, and a box that has not arrived means the
+    // pizza is added to the order with no box at all - both silent, both with
+    // nothing to fall back to.
+    await loadToppings()
+    if (cancelled) return
+    await loadProps()
+    if (cancelled) return
+
     // Two flavours at a time: enough to keep the connection busy, few enough
     // that an `ensure` jumping the queue is not stuck behind a wall of them.
     await pool([...FLAVORS], 2, async (f) => {
       await fillFlavor(f)
     })
-    if (cancelled) return
-    await loadToppings()
-    if (cancelled) return
-    await loadProps()
   })()
 
   return {
     assets,
     ensure: (flavor) => fillFlavor(flavor),
     ensureToppings: loadToppings,
+    ensureProps: loadProps,
     complete,
     cancel() {
       cancelled = true

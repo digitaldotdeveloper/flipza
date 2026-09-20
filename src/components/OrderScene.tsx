@@ -353,9 +353,12 @@ export default function OrderScene() {
   const go = useCallback((next: Step) => {
     setTouched(true)
     setStep(next)
-    // Opening the extras step is the earliest warning that the pieces are
-    // about to be needed, and it is a whole tap of notice.
-    if (next === 'extras') void loadHandle.current?.ensureToppings()
+    // Opening the extras step is the earliest warning that the pieces and the
+    // box are about to be needed, and it is a tap or two of notice.
+    if (next === 'extras') {
+      void loadHandle.current?.ensureToppings()
+      void loadHandle.current?.ensureProps()
+    }
   }, [])
 
   const chooseFlavor = useCallback((flavor: Flavor) => {
@@ -403,6 +406,10 @@ export default function OrderScene() {
     setBusy(true)
     setTouched(true)
     const line: OrderLine = { id: `l${++lineSeq}`, ...draft, qty: 1 }
+    // The box is the whole point of this sequence, and on a cold connection it
+    // may still be in flight. Waiting on it is a beat of nothing; running
+    // without it is a pizza that vanishes into thin air.
+    await loadHandle.current?.ensureProps()
     await engine.current?.addToOrder()
     setLines((ls) => {
       // Same pizza twice is a quantity, not a second line.
