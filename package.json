@@ -1,0 +1,30 @@
+{
+  "name": "flipza-hero",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prepare-art": "node scripts/prepare-oven.mjs && node scripts/prepare-portrait.mjs && node scripts/prepare-props.mjs",
+    "prepare-assets": "node scripts/prepare-assets.mjs",
+    "prepare-all": "npm run prepare-art && npm run prepare-assets",
+    "to-webp": "node scripts/to-webp.mjs",
+    "dev": "npm run prepare-all && vite",
+    "build": "npm run prepare-all && tsc --noEmit && vite build",
+    "standalone": "npm run prepare-all && tsc --noEmit && vite build --mode standalone && node scripts/build-standalone.mjs",
+    "preview": "vite preview",
+    "deploy": "npm run build && node scripts/deploy-pages.mjs"
+  },
+  "dependencies": {
+    "gsap": "^3.13.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "sharp": "^0.34.2",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  }
+}

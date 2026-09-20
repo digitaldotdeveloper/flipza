@@ -1,0 +1,1018 @@
+/*
+ * Flipza.
+ *
+ * One screen, never scrolled: the kitchen fills it and the order is built in a
+ * dock along the bottom. Written mobile-first, because the phone layout is the
+ * constrained one - it is the screen where the scene, the readout, four steps
+ * of options and a button all have to fit at once, and everything above 640px
+ * is that layout with more room.
+ */
+
+:root {
+  --red: #e63b2e;
+  --red-lit: #ff5744;
+  --green: #2e7d32;
+  --cream: #fff1d6;
+  --ink: #1f1f1f;
+  --amber: #f4a62a;
+  --void: #12100f;
+
+  --glass: rgba(18, 15, 13, 0.72);
+  --edge: rgba(255, 241, 214, 0.16);
+  --dim: rgba(255, 241, 214, 0.58);
+
+  --font: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+
+  /* The dock is as tall as the step it is showing, and animates between them.
+     Set here, overridden per step on .hero, so the height lives in one place. */
+  --panel: 108px;
+  --gutter: 14px;
+  --radius: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--void);
+  color: var(--cream);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Nothing on the page scrolls, and letting it rubber-band on touch just shifts
+   the controls out from under the thumb mid-tap. */
+body {
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  /* Kills the 300ms tap delay and the grey flash, both of which make a tap
+     feel like a click that did not land. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------------------------------------------------------- hero --- */
+
+.hero {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+.hero[data-step='size'] {
+  --panel: 96px;
+}
+
+.hero[data-step='order'] {
+  --panel: min(44svh, 300px);
+}
+
+/* The scene is the page. The dock floats over it rather than pushing it into a
+   band - a phone screen has no room to spare for letterboxing, and the plate
+   is extended vertically (prepare-portrait.mjs) so it can fill a tall screen
+   without the toss leaving the frame. */
+.hero__stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--void);
+}
+
+.hero__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: translateZ(0);
+}
+
+/* Keeps the chrome legible over the brightest frames without dimming the
+   pizza: dark at the very top and bottom, clear through the middle where the
+   pizza actually travels. */
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 20%),
+    linear-gradient(to top, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.22) 26%, rgba(0, 0, 0, 0) 46%);
+}
+
+/* ----------------------------------------------------------------- top --- */
+
+.hero__top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) var(--gutter) 0;
+}
+
+.hero__logo {
+  width: 78px;
+  height: auto;
+  padding: 7px 10px;
+  border-radius: 11px;
+  /* The lockup is near-black letterforms, so it needs a light plate to stay
+     readable against a dark kitchen. */
+  background: rgba(255, 241, 214, 0.93);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.basket {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--glass);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease, transform 160ms ease;
+}
+
+.basket:active {
+  transform: scale(0.96);
+}
+
+.basket__n {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 241, 214, 0.14);
+  font-size: 12px;
+  transition: background 260ms ease, color 260ms ease;
+}
+
+.basket[data-full] {
+  border-color: rgba(230, 59, 46, 0.6);
+}
+
+.basket[data-full] .basket__n {
+  background: var(--red);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------- readout --- */
+
+/*
+ * On a phone the readout hangs under the logo, in the dark band of ceiling at
+ * the top of the frame.
+ *
+ * It wants to be at the bottom, with the flavour name reading up out of the
+ * dock - and on a wide screen that is where it goes. A phone has no room for
+ * it there: the pizza rests low in a tall frame and the dock starts right
+ * underneath it, so anything between the two lands on top of the peel. The
+ * ceiling is empty, dark, and the one place on the screen where cream text on
+ * no background is completely legible.
+ */
+.readout {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  top: calc(max(12px, env(safe-area-inset-top)) + 96px);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.readout__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.readout__word {
+  position: relative;
+  font-size: clamp(30px, 8.6vw, 54px);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 0.96;
+  text-transform: uppercase;
+  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.65);
+  animation: word-in 460ms cubic-bezier(0.16, 0.84, 0.24, 1) both;
+}
+
+.readout__sub {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.3em);
+    filter: blur(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+.hero__hint {
+  position: absolute;
+  left: var(--gutter);
+  top: calc(max(12px, env(safe-area-inset-top)) + 212px);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 241, 214, 0.55);
+  pointer-events: none;
+  animation: hint 2.6s ease-in-out infinite;
+}
+
+@keyframes hint {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------- dock --- */
+
+.dock {
+  position: absolute;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: max(10px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--glass);
+  /* Deliberately no backdrop-filter. The canvas behind this has a `filter`
+     switched on and off as the toss blurs, and Chromium serves a stale
+     backdrop snapshot when that happens - the dock paints as an empty frosted
+     rectangle with its contents missing. A plain translucent fill reads the
+     same over a dark kitchen and costs nothing to composite at 60fps. */
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+
+/* Taps are ignored while the box sequence is playing, but the dock stays at
+   full opacity: dimming it would read as an error rather than as a wait. */
+.dock[data-busy] {
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- rail --- */
+
+.rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+}
+
+.rail__step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 241, 214, 0.45);
+  cursor: pointer;
+  transition: color 240ms ease, background 240ms ease;
+}
+
+.rail__step[data-state='now'] {
+  color: var(--cream);
+  background: rgba(255, 241, 214, 0.08);
+}
+
+.rail__step[data-state='done'] {
+  color: rgba(255, 241, 214, 0.72);
+}
+
+.rail__dot {
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+}
+
+.rail__step[data-state='now'] .rail__dot {
+  border-color: var(--red);
+  background: var(--red);
+  color: #fff;
+}
+
+.rail__step[data-state='done'] .rail__dot {
+  border-color: rgba(255, 241, 214, 0.4);
+}
+
+/* -------------------------------------------------------------- panels --- */
+
+.dock__window {
+  height: var(--panel);
+  overflow: hidden;
+  transition: height 420ms cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+/* One track slid sideways rather than a swap of the visible panel: sliding is
+   the point of a stepper with nothing to scroll, and keeping all four mounted
+   means the browser is not laying out a new panel in the same frame it is
+   animating the last one out. */
+.dock__track {
+  display: flex;
+  height: 100%;
+  transition: transform 460ms cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+
+.panel {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chips {
+  display: grid;
+  gap: 6px;
+  height: 100%;
+}
+
+/* Three across even on a phone. Two across needs three rows for six flavours,
+   and the extra row costs 50px of kitchen - on a 844px screen that is the
+   difference between the pizza sitting above the dock and sitting behind it.
+   The labels wrap to two lines instead, which is free. */
+.chips--flavour {
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
+}
+
+.chips--flavour .chip {
+  padding: 5px 7px;
+}
+
+.chips--flavour .chip__name {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: normal;
+}
+
+.chips--size,
+.chips--extras {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.chips--extras {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  /* 44px is the smallest target a thumb hits reliably; every chip clears it. */
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 11px;
+  background: rgba(255, 241, 214, 0.04);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 200ms ease, background 200ms ease, transform 140ms ease;
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chip[data-on] {
+  border-color: var(--red);
+  background: rgba(230, 59, 46, 0.18);
+}
+
+.chip__name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.chip__note {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.chip--size {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.chip__size {
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+/* Hover is an enhancement, never the only way something reads as tappable -
+   a phone has no hover and the chips have to look live without it. */
+@media (hover: hover) {
+  .chip:hover {
+    border-color: rgba(255, 241, 214, 0.42);
+  }
+
+  .chip[data-on]:hover {
+    border-color: var(--red-lit);
+  }
+
+  .rail__step:hover {
+    color: var(--cream);
+  }
+}
+
+/* ----------------------------------------------------------------- cta --- */
+
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: rgba(255, 241, 214, 0.08);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 140ms ease, background 220ms ease, box-shadow 220ms ease;
+}
+
+.cta:active {
+  transform: scale(0.985);
+}
+
+.cta--go {
+  border-color: transparent;
+  background: var(--red);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(230, 59, 46, 0.36);
+}
+
+.cta:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}
+
+.cta__price {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.cta:not(.cta--go) .cta__price {
+  color: var(--dim);
+}
+
+@media (hover: hover) {
+  .cta--go:hover:not(:disabled) {
+    background: var(--red-lit);
+  }
+}
+
+/* --------------------------------------------------------------- order --- */
+
+.order {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 8px;
+}
+
+.order--empty {
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.order--empty p {
+  margin: 0;
+}
+
+/* The one element on the page with its own scrollbar. An order can be any
+   length; shrinking the rows until they are unreadable, or hiding lines behind
+   a "+2 more", are both worse than letting the list itself scroll. */
+.order__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0 2px 0 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.order__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 241, 214, 0.08);
+}
+
+.order__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.order__name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order__price {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.qty {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.qty__btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qty__btn:active {
+  background: rgba(255, 241, 214, 0.12);
+}
+
+.qty__n {
+  min-width: 22px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.order__foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+}
+
+.segmented__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  cursor: pointer;
+  transition: background 220ms ease, color 220ms ease;
+}
+
+.segmented__btn[data-on] {
+  background: rgba(255, 241, 214, 0.12);
+  color: var(--cream);
+}
+
+.segmented__btn small {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.totals div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.totals dt,
+.totals dd {
+  margin: 0;
+}
+
+.totals__sum {
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 241, 214, 0.12);
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--cream);
+}
+
+.link {
+  align-self: flex-start;
+  padding: 6px 0;
+  min-height: 32px;
+  border: 0;
+  background: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+  cursor: pointer;
+}
+
+/* -------------------------------------------------------------- placed --- */
+
+.placed {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+  background: rgba(8, 7, 6, 0.62);
+  animation: fade-in 320ms ease both;
+}
+
+.placed__card {
+  width: min(420px, 100%);
+  max-height: 86svh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: rgba(18, 15, 13, 0.95);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  animation: card-in 480ms cubic-bezier(0.16, 0.84, 0.24, 1) both;
+}
+
+.placed__tick {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: var(--green);
+  font-size: 22px;
+  color: #fff;
+}
+
+.placed__title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.placed__eta {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.placed__list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.placed__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 241, 214, 0.08);
+}
+
+.placed__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 2px 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.placed__total strong {
+  font-size: 20px;
+  color: var(--cream);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* -------------------------------------------------------------- loader --- */
+
+.loader {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: var(--void);
+  transition: opacity 620ms ease, visibility 0s linear 620ms;
+}
+
+.loader[data-done] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loader__logo {
+  width: 170px;
+  height: auto;
+  padding: 15px 18px;
+  border-radius: 16px;
+  background: rgba(255, 241, 214, 0.93);
+}
+
+.loader__bar {
+  width: 170px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 241, 214, 0.16);
+  overflow: hidden;
+}
+
+.loader__bar span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--red);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 260ms ease;
+}
+
+.loader__pct {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  color: rgba(255, 241, 214, 0.5);
+}
+
+/* ------------------------------------------------------------ wide-ish --- */
+
+/* From here up there is room to put the dock's three parts side by side, which
+   halves its height and gives the scene back the bottom of the screen. */
+@media (min-width: 720px) {
+  :root {
+    --gutter: 24px;
+    /* Two rows of flavour chips, which is what six flavours need at three
+       across. The size step only ever has one row and says so below. */
+    --panel: 100px;
+  }
+
+  .hero[data-step='size'] {
+    --panel: 76px;
+  }
+
+  .hero[data-step='order'] {
+    --panel: min(40svh, 280px);
+  }
+
+  .hero__logo {
+    width: 120px;
+    padding: 10px 14px;
+  }
+
+  .dock {
+    left: 50%;
+    right: auto;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    width: min(1020px, calc(100% - 48px));
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: 190px 1fr 210px;
+    grid-template-areas: 'rail window cta';
+    align-items: center;
+    gap: 18px;
+    padding: 14px 16px;
+  }
+
+  .rail {
+    grid-area: rail;
+    grid-auto-flow: row;
+    gap: 2px;
+  }
+
+  .rail__step {
+    justify-content: flex-start;
+    min-height: 26px;
+    padding: 3px 6px;
+  }
+
+  .dock__window {
+    grid-area: window;
+  }
+
+  .dock__cta {
+    grid-area: cta;
+  }
+
+  .chips--flavour {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .chips--extras {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .cta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 66px;
+  }
+
+  /* Wide enough for the dock to be a bar rather than a panel, so the bottom
+     left corner is free again and the readout goes back to it. */
+  .readout {
+    right: auto;
+    top: auto;
+    max-width: 46vw;
+    bottom: calc(var(--panel) + 118px + max(20px, env(safe-area-inset-bottom)));
+    transition: bottom 420ms cubic-bezier(0.22, 0.9, 0.24, 1);
+  }
+
+  .hero__hint {
+    top: auto;
+    bottom: calc(var(--panel) + 96px + max(20px, env(safe-area-inset-bottom)));
+  }
+
+  .order {
+    flex-direction: row;
+    gap: 20px;
+  }
+
+  .order__list {
+    flex: 1 1 60%;
+  }
+
+  .order__foot {
+    flex: 0 0 240px;
+    justify-content: flex-end;
+  }
+}
+
+/* On a tall desktop window the dock has room to sit further from the edge and
+   the readout can breathe. */
+@media (min-width: 1100px) {
+  .readout__word {
+    font-size: clamp(38px, 4.4vw, 62px);
+  }
+}
+
+/* ----------------------------------------------------- reduced motion --- */
+
+/*
+ * Windows Server reports this by default (see OrderScene.tsx), so this branch
+ * is not an edge case on the machine this was built on. Transitions become
+ * instant rather than disappearing, so the UI still lands where it should -
+ * only the travel is removed.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .readout__word,
+  .placed,
+  .placed__card {
+    animation-duration: 1ms;
+  }
+
+  .hero__hint {
+    animation: none;
+    opacity: 0.8;
+  }
+
+  .dock__track,
+  .dock__window,
+  .readout {
+    transition-duration: 1ms;
+  }
+
+  .basket,
+  .chip,
+  .cta {
+    transition-duration: 1ms;
+  }
+}

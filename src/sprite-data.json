@@ -1,0 +1,453 @@
+{
+  "poseCount": 9,
+  "flavours": [
+    "diavola",
+    "formaggi",
+    "margherita",
+    "pepperoni",
+    "speciale",
+    "veggie"
+  ],
+  "sprites": {
+    "peel": {
+      "width": 776,
+      "height": 699,
+      "cx": 387.56,
+      "cy": 212.26,
+      "major": 728.8,
+      "minor": 570.9
+    },
+    "pizza-diavola-1": {
+      "width": 562,
+      "height": 259,
+      "cx": 276.38,
+      "cy": 128.86,
+      "major": 566.41,
+      "minor": 256.77
+    },
+    "pizza-diavola-2": {
+      "width": 612,
+      "height": 300,
+      "cx": 303.46,
+      "cy": 149.57,
+      "major": 638.53,
+      "minor": 250.3
+    },
+    "pizza-diavola-3": {
+      "width": 763,
+      "height": 432,
+      "cx": 380.76,
+      "cy": 216.59,
+      "major": 814.57,
+      "minor": 316.7
+    },
+    "pizza-diavola-4": {
+      "width": 613,
+      "height": 450,
+      "cx": 310.43,
+      "cy": 229.99,
+      "major": 717.86,
+      "minor": 250.91
+    },
+    "pizza-diavola-5": {
+      "width": 695,
+      "height": 395,
+      "cx": 344.66,
+      "cy": 197.87,
+      "major": 753.76,
+      "minor": 270.76
+    },
+    "pizza-diavola-6": {
+      "width": 679,
+      "height": 409,
+      "cx": 336.56,
+      "cy": 204.79,
+      "major": 726.9,
+      "minor": 311.6
+    },
+    "pizza-diavola-7": {
+      "width": 619,
+      "height": 398,
+      "cx": 312.18,
+      "cy": 203.01,
+      "major": 680.08,
+      "minor": 282.6
+    },
+    "pizza-diavola-8": {
+      "width": 742,
+      "height": 432,
+      "cx": 382.45,
+      "cy": 223.67,
+      "major": 818.26,
+      "minor": 268.31
+    },
+    "pizza-diavola-9": {
+      "width": 784,
+      "height": 342,
+      "cx": 391.12,
+      "cy": 170.6,
+      "major": 791.01,
+      "minor": 339.47
+    },
+    "pizza-formaggi-1": {
+      "width": 865,
+      "height": 444,
+      "cx": 425.73,
+      "cy": 222.51,
+      "major": 872.01,
+      "minor": 440.77
+    },
+    "pizza-formaggi-2": {
+      "width": 613,
+      "height": 300,
+      "cx": 304.52,
+      "cy": 149.57,
+      "major": 638.46,
+      "minor": 250.22
+    },
+    "pizza-formaggi-3": {
+      "width": 763,
+      "height": 432,
+      "cx": 380.7,
+      "cy": 216.63,
+      "major": 814.6,
+      "minor": 316.73
+    },
+    "pizza-formaggi-4": {
+      "width": 613,
+      "height": 450,
+      "cx": 310.48,
+      "cy": 229.91,
+      "major": 717.83,
+      "minor": 250.87
+    },
+    "pizza-formaggi-5": {
+      "width": 695,
+      "height": 395,
+      "cx": 344.67,
+      "cy": 197.78,
+      "major": 753.71,
+      "minor": 270.89
+    },
+    "pizza-formaggi-6": {
+      "width": 679,
+      "height": 409,
+      "cx": 336.56,
+      "cy": 204.81,
+      "major": 726.86,
+      "minor": 311.69
+    },
+    "pizza-formaggi-7": {
+      "width": 619,
+      "height": 398,
+      "cx": 312.16,
+      "cy": 202.97,
+      "major": 679.92,
+      "minor": 282.58
+    },
+    "pizza-formaggi-8": {
+      "width": 742,
+      "height": 432,
+      "cx": 382.48,
+      "cy": 223.68,
+      "major": 818.3,
+      "minor": 268.4
+    },
+    "pizza-formaggi-9": {
+      "width": 785,
+      "height": 342,
+      "cx": 391.1,
+      "cy": 170.57,
+      "major": 791.04,
+      "minor": 339.3
+    },
+    "pizza-margherita-1": {
+      "width": 854,
+      "height": 399,
+      "cx": 420.72,
+      "cy": 199.41,
+      "major": 859.21,
+      "minor": 396.08
+    },
+    "pizza-margherita-2": {
+      "width": 612,
+      "height": 300,
+      "cx": 303.5,
+      "cy": 149.59,
+      "major": 638.53,
+      "minor": 250.25
+    },
+    "pizza-margherita-3": {
+      "width": 763,
+      "height": 431,
+      "cx": 380.7,
+      "cy": 215.61,
+      "major": 814.58,
+      "minor": 316.52
+    },
+    "pizza-margherita-4": {
+      "width": 613,
+      "height": 449,
+      "cx": 310.42,
+      "cy": 230.02,
+      "major": 717.73,
+      "minor": 250.89
+    },
+    "pizza-margherita-5": {
+      "width": 695,
+      "height": 395,
+      "cx": 344.66,
+      "cy": 197.81,
+      "major": 753.66,
+      "minor": 270.9
+    },
+    "pizza-margherita-6": {
+      "width": 679,
+      "height": 409,
+      "cx": 336.61,
+      "cy": 204.79,
+      "major": 726.81,
+      "minor": 311.54
+    },
+    "pizza-margherita-7": {
+      "width": 619,
+      "height": 398,
+      "cx": 312.12,
+      "cy": 203.03,
+      "major": 679.9,
+      "minor": 282.72
+    },
+    "pizza-margherita-8": {
+      "width": 742,
+      "height": 432,
+      "cx": 382.51,
+      "cy": 223.64,
+      "major": 818.3,
+      "minor": 268.4
+    },
+    "pizza-margherita-9": {
+      "width": 785,
+      "height": 342,
+      "cx": 391.18,
+      "cy": 170.56,
+      "major": 791.17,
+      "minor": 339.39
+    },
+    "pizza-pepperoni-1": {
+      "width": 563,
+      "height": 259,
+      "cx": 277.28,
+      "cy": 128.85,
+      "major": 566.25,
+      "minor": 256.6
+    },
+    "pizza-pepperoni-2": {
+      "width": 612,
+      "height": 300,
+      "cx": 303.5,
+      "cy": 149.6,
+      "major": 637.51,
+      "minor": 249.56
+    },
+    "pizza-pepperoni-3": {
+      "width": 763,
+      "height": 431,
+      "cx": 380.72,
+      "cy": 215.6,
+      "major": 814.71,
+      "minor": 316.65
+    },
+    "pizza-pepperoni-4": {
+      "width": 613,
+      "height": 450,
+      "cx": 310.36,
+      "cy": 230,
+      "major": 717.9,
+      "minor": 250.92
+    },
+    "pizza-pepperoni-5": {
+      "width": 694,
+      "height": 395,
+      "cx": 343.65,
+      "cy": 197.86,
+      "major": 753.61,
+      "minor": 270.73
+    },
+    "pizza-pepperoni-6": {
+      "width": 679,
+      "height": 409,
+      "cx": 336.57,
+      "cy": 204.79,
+      "major": 726.83,
+      "minor": 311.56
+    },
+    "pizza-pepperoni-7": {
+      "width": 619,
+      "height": 398,
+      "cx": 312.19,
+      "cy": 202.99,
+      "major": 679.83,
+      "minor": 282.47
+    },
+    "pizza-pepperoni-8": {
+      "width": 742,
+      "height": 432,
+      "cx": 382.47,
+      "cy": 223.69,
+      "major": 818.3,
+      "minor": 268.47
+    },
+    "pizza-pepperoni-9": {
+      "width": 785,
+      "height": 342,
+      "cx": 391.18,
+      "cy": 170.53,
+      "major": 791.07,
+      "minor": 339.43
+    },
+    "pizza-speciale-1": {
+      "width": 562,
+      "height": 259,
+      "cx": 276.35,
+      "cy": 128.83,
+      "major": 566.38,
+      "minor": 256.62
+    },
+    "pizza-speciale-2": {
+      "width": 613,
+      "height": 301,
+      "cx": 304.47,
+      "cy": 149.57,
+      "major": 638.4,
+      "minor": 250.31
+    },
+    "pizza-speciale-3": {
+      "width": 763,
+      "height": 431,
+      "cx": 380.69,
+      "cy": 215.62,
+      "major": 813.96,
+      "minor": 316.14
+    },
+    "pizza-speciale-4": {
+      "width": 613,
+      "height": 450,
+      "cx": 310.41,
+      "cy": 229.97,
+      "major": 717.83,
+      "minor": 250.89
+    },
+    "pizza-speciale-5": {
+      "width": 695,
+      "height": 395,
+      "cx": 344.65,
+      "cy": 197.85,
+      "major": 753.52,
+      "minor": 270.82
+    },
+    "pizza-speciale-6": {
+      "width": 679,
+      "height": 409,
+      "cx": 336.51,
+      "cy": 204.76,
+      "major": 727.03,
+      "minor": 311.54
+    },
+    "pizza-speciale-7": {
+      "width": 619,
+      "height": 398,
+      "cx": 312.21,
+      "cy": 202.96,
+      "major": 679.78,
+      "minor": 282.58
+    },
+    "pizza-speciale-8": {
+      "width": 742,
+      "height": 432,
+      "cx": 382.53,
+      "cy": 223.64,
+      "major": 818.3,
+      "minor": 268.42
+    },
+    "pizza-speciale-9": {
+      "width": 784,
+      "height": 342,
+      "cx": 391.12,
+      "cy": 170.55,
+      "major": 791.04,
+      "minor": 339.36
+    },
+    "pizza-veggie-1": {
+      "width": 562,
+      "height": 259,
+      "cx": 276.29,
+      "cy": 128.82,
+      "major": 566.33,
+      "minor": 256.73
+    },
+    "pizza-veggie-2": {
+      "width": 613,
+      "height": 300,
+      "cx": 304.42,
+      "cy": 149.59,
+      "major": 638.35,
+      "minor": 250.24
+    },
+    "pizza-veggie-3": {
+      "width": 763,
+      "height": 431,
+      "cx": 380.75,
+      "cy": 215.57,
+      "major": 814.72,
+      "minor": 316.72
+    },
+    "pizza-veggie-4": {
+      "width": 613,
+      "height": 450,
+      "cx": 310.38,
+      "cy": 229.97,
+      "major": 717.78,
+      "minor": 250.83
+    },
+    "pizza-veggie-5": {
+      "width": 695,
+      "height": 395,
+      "cx": 344.65,
+      "cy": 197.81,
+      "major": 753.7,
+      "minor": 270.79
+    },
+    "pizza-veggie-6": {
+      "width": 679,
+      "height": 409,
+      "cx": 336.58,
+      "cy": 204.78,
+      "major": 726.94,
+      "minor": 311.61
+    },
+    "pizza-veggie-7": {
+      "width": 619,
+      "height": 398,
+      "cx": 312.18,
+      "cy": 202.95,
+      "major": 680.03,
+      "minor": 282.64
+    },
+    "pizza-veggie-8": {
+      "width": 742,
+      "height": 432,
+      "cx": 382.45,
+      "cy": 223.69,
+      "major": 818.23,
+      "minor": 268.38
+    },
+    "pizza-veggie-9": {
+      "width": 785,
+      "height": 342,
+      "cx": 391.12,
+      "cy": 170.49,
+      "major": 791.11,
+      "minor": 339.49
+    }
+  }
+}
