@@ -7,8 +7,9 @@
  *
  *   critical   the plate, the peel and pose 1 of every flavour - enough to
  *              draw a resting pizza and let someone tap. Six-odd images.
- *   rest       poses 2..9 per flavour, then the fire, then the box and the
- *              toppings - in the order they can first be needed.
+ *   rest       the fire, then poses 2..9 per flavour, then the box and the
+ *              toppings - in the order they are first *seen*, which is not the
+ *              order they are first needed.
  *
  * `ensure(flavour)` jumps a flavour to the front of that queue, so tapping
  * something that has not streamed in yet fetches it immediately rather than
@@ -113,19 +114,36 @@ export async function loadScene(onProgress?: (done: number, total: number) => vo
   }
 
   const complete = (async () => {
-    // Flavours first - they are the only thing a tap needs. Two at a time:
-    // enough to keep the connection busy, few enough that an `ensure` jumping
-    // the queue is not stuck behind a wall of requests.
+    // The fire first, even though nothing needs it.
+    //
+    // The obvious order is by need - the poses, since a tap is the only thing
+    // that can happen next. But the fire is the only thing on screen that
+    // moves on its own, it is what says the kitchen is alive, and it is the
+    // first thing anybody looks at. Behind the poses on a real connection it
+    // arrives about eight seconds in, and until then the oven is a photograph
+    // of some embers. It is 540KB against the poses' 2.6MB, and a flavour
+    // tapped while it is still loading jumps the queue anyway.
+    const fire = fireFrameUrls()
+    // Indexed, not pushed: pooled work finishes out of order, and the frames
+    // are a cycle whose order is the whole point of it.
+    const flames = new Array<ImageBitmap>(fire.length)
+    await pool(
+      fire.map((url, i) => ({ url, i })),
+      4,
+      async ({ url, i }) => {
+        flames[i] = await loadBitmap(url)
+      }
+    )
+    if (cancelled) return flames.forEach((b) => b?.close())
+    assets.flames = flames
+
+    // Then the rest of every flavour, two at a time: enough to keep the
+    // connection busy, few enough that an `ensure` jumping the queue is not
+    // stuck behind a wall of requests.
     await pool([...FLAVORS], 2, async (f) => {
       await fillFlavor(f)
     })
     if (cancelled) return
-
-    // Then the fire. It is the first thing that plays on its own, but the
-    // scene is perfectly watchable without it, so it comes after the toss.
-    const flames = await Promise.all(fireFrameUrls().map(loadBitmap))
-    if (cancelled) return flames.forEach((b) => b.close())
-    assets.flames = flames
 
     // Then the props for the end of the flow, which cannot be reached in less
     // time than this takes.
