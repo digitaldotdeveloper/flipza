@@ -2,23 +2,31 @@
  * Gets the scene on screen as fast as possible, then fills in the rest.
  *
  * The old loader blocked on all 64 bitmaps before the first frame, which was
- * tolerable at three flavours and not at six. Nothing can be tossed until a
- * flavour is tapped, so there is a whole interaction's worth of time to fill:
+ * tolerable at three flavours and not at six. Nothing can be tapped until the
+ * page has drawn, so there is a whole interaction's worth of time to fill:
  *
  *   critical   the plate, the peel and pose 1 of every flavour - enough to
- *              draw a resting pizza and let someone tap. Six-odd images.
- *   rest       the fire, then poses 2..9 per flavour, then the box and the
- *              toppings - in the order they are first *seen*, which is not the
- *              order they are first needed.
+ *              draw a resting pizza and let someone tap. Eight-odd images.
+ *   streamed   everything else, in the order it can first be *seen*, which is
+ *              not the order it can first be needed.
  *
- * `ensure(flavour)` jumps a flavour to the front of that queue, so tapping
- * something that has not streamed in yet fetches it immediately rather than
- * waiting its turn behind five others.
+ * Two things stop that order from ever being wrong:
+ *
+ *   - every group is a `once()` promise, so asking for it twice runs it once,
+ *     and the stream can simply await the same promise the caller did;
+ *   - anything reachable early can be pulled forward - `ensure(flavour)` when
+ *     a flavour is tapped, `ensureToppings()` when the extras step opens. A
+ *     tap never waits behind something nobody is looking at.
+ *
+ * The cost of getting this wrong is invisible and easy to miss: nothing errors,
+ * the feature just silently does nothing the first few times it is used. The
+ * toppings arrived about ten seconds in when they were last in the queue, which
+ * is long after the extras step can be reached.
  */
 import { FLAVORS, PEEL, PLATE, POSE_COUNT, posesFor } from '../scene'
 import type { Flavor } from '../scene'
 import { EXTRAS } from '../menu'
-import { boxUrls, fireFrameUrls, toppingUrls } from '../props'
+import { boxFrameUrls, fireFrameUrls, sideUrls, toppingUrls } from '../props'
 import type { SceneAssets } from './renderer'
 
 /**
@@ -48,22 +56,46 @@ async function pool<T>(items: T[], limit: number, work: (item: T) => Promise<voi
   await Promise.all(runners)
 }
 
+/** Runs at most once, however many times it is called. */
+function once<T>(fn: () => Promise<T>) {
+  let p: Promise<T> | null = null
+  return () => (p ??= fn())
+}
+
+/** Loads a list of urls into an array, keeping the list's order. */
+async function loadAll(urls: string[], limit: number) {
+  const out = new Array<ImageBitmap>(urls.length)
+  await pool(
+    urls.map((url, i) => ({ url, i })),
+    limit,
+    async ({ url, i }) => {
+      out[i] = await loadBitmap(url)
+    }
+  )
+  return out
+}
+
 export interface LoadHandle {
   assets: SceneAssets
   /** Fetches a flavour's remaining poses now, ahead of the queue. */
   ensure(flavor: Flavor): Promise<void>
-  /** Resolves when everything, including props, has been decoded. */
+  /** Fetches the topping pieces now - called when the extras step opens. */
+  ensureToppings(): Promise<void>
+  /** Resolves when everything has been decoded. */
   complete: Promise<void>
   cancel(): void
 }
 
-export async function loadScene(onProgress?: (done: number, total: number) => void): Promise<LoadHandle> {
+export async function loadScene(
+  onProgress?: (done: number, total: number) => void
+): Promise<LoadHandle> {
   let cancelled = false
   const assets: SceneAssets = {
     plate: null as unknown as ImageBitmap,
     peel: null as unknown as ImageBitmap,
     poses: {},
     flames: [],
+    boxFrames: [],
     toppings: {},
   }
 
@@ -94,7 +126,7 @@ export async function loadScene(onProgress?: (done: number, total: number) => vo
 
   if (cancelled) throw new Error('cancelled')
 
-  // ---------------------------------------------------------------- rest ---
+  // ------------------------------------------------------------- groups ---
 
   const pending = new Map<Flavor, Promise<void>>()
 
@@ -113,44 +145,20 @@ export async function loadScene(onProgress?: (done: number, total: number) => vo
     return p
   }
 
-  const complete = (async () => {
-    // The fire first, even though nothing needs it.
-    //
-    // The obvious order is by need - the poses, since a tap is the only thing
-    // that can happen next. But the fire is the only thing on screen that
-    // moves on its own, it is what says the kitchen is alive, and it is the
-    // first thing anybody looks at. Behind the poses on a real connection it
-    // arrives about eight seconds in, and until then the oven is a photograph
-    // of some embers. It is 540KB against the poses' 2.6MB, and a flavour
-    // tapped while it is still loading jumps the queue anyway.
-    const fire = fireFrameUrls()
-    // Indexed, not pushed: pooled work finishes out of order, and the frames
-    // are a cycle whose order is the whole point of it.
-    const flames = new Array<ImageBitmap>(fire.length)
-    await pool(
-      fire.map((url, i) => ({ url, i })),
-      4,
-      async ({ url, i }) => {
-        flames[i] = await loadBitmap(url)
-      }
-    )
+  /**
+   * The fire. It is the only thing on screen that moves on its own, it is what
+   * says the kitchen is alive, and it is the first thing anybody looks at -
+   * which is why it goes before two and a half megabytes of tumble poses that
+   * nothing can use until something is tapped.
+   */
+  const loadFire = once(async () => {
+    const flames = await loadAll(fireFrameUrls(), 4)
     if (cancelled) return flames.forEach((b) => b?.close())
     assets.flames = flames
+  })
 
-    // Then the rest of every flavour, two at a time: enough to keep the
-    // connection busy, few enough that an `ensure` jumping the queue is not
-    // stuck behind a wall of requests.
-    await pool([...FLAVORS], 2, async (f) => {
-      await fillFlavor(f)
-    })
-    if (cancelled) return
-
-    // Then the props for the end of the flow, which cannot be reached in less
-    // time than this takes.
-    const { open, mid, closed } = boxUrls()
-    if (open) assets.boxOpen = await loadBitmap(open).catch(() => undefined)
-    if (mid) assets.boxMid = await loadBitmap(mid).catch(() => undefined)
-    if (closed) assets.boxClosed = await loadBitmap(closed).catch(() => undefined)
+  /** The extras, which are two taps away and so cannot wait for the box. */
+  const loadToppings = once(async () => {
     for (const extra of EXTRAS) {
       const urls = toppingUrls(extra.sprite)
       if (!urls.length) continue
@@ -158,21 +166,49 @@ export async function loadScene(onProgress?: (done: number, total: number) => vo
       if (cancelled) return
       assets.toppings[extra.id] = pieces.filter((p): p is ImageBitmap => !!p)
     }
+  })
+
+  /** The box and the sides, which are the furthest thing from a first tap. */
+  const loadProps = once(async () => {
+    const boxFrames = await loadAll(boxFrameUrls(), 3)
+    if (cancelled) return boxFrames.forEach((b) => b?.close())
+    // Assigned in one go: a half-filled sequence would let the lid animation
+    // index into a hole part way down.
+    assets.boxFrames = boxFrames.filter(Boolean)
+
+    const side = sideUrls()
+    if (side.fries) assets.fries = await loadBitmap(side.fries).catch(() => undefined)
+    if (side.cola) assets.cola = await loadBitmap(side.cola).catch(() => undefined)
+  })
+
+  const complete = (async () => {
+    await loadFire()
+    if (cancelled) return
+    // Two flavours at a time: enough to keep the connection busy, few enough
+    // that an `ensure` jumping the queue is not stuck behind a wall of them.
+    await pool([...FLAVORS], 2, async (f) => {
+      await fillFlavor(f)
+    })
+    if (cancelled) return
+    await loadToppings()
+    if (cancelled) return
+    await loadProps()
   })()
 
   return {
     assets,
     ensure: (flavor) => fillFlavor(flavor),
+    ensureToppings: loadToppings,
     complete,
     cancel() {
       cancelled = true
       assets.plate?.close()
       assets.peel?.close()
       Object.values(assets.poses).forEach((set) => set.forEach((b) => b?.close()))
-      assets.flames.forEach((b) => b.close())
-      assets.boxOpen?.close()
-      assets.boxMid?.close()
-      assets.boxClosed?.close()
+      assets.flames.forEach((b) => b?.close())
+      assets.boxFrames.forEach((b) => b?.close())
+      assets.fries?.close()
+      assets.cola?.close()
       Object.values(assets.toppings).forEach((set) => set.forEach((b) => b.close()))
     },
   }

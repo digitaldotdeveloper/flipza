@@ -54,6 +54,8 @@ export default function OrderScene() {
   const stageRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const engine = useRef<Engine | null>(null)
+  /** The streaming loader, kept so steps can pull their assets forward. */
+  const loadHandle = useRef<LoadHandle | null>(null)
 
   const [progress, setProgress] = useState(0)
   const [ready, setReady] = useState(false)
@@ -66,11 +68,27 @@ export default function OrderScene() {
     extras: [],
   })
   const [lines, setLines] = useState<OrderLine[]>([])
+  /** Meals - fries and a cola - added alongside the pizzas. */
+  const [meals, setMeals] = useState(0)
+  /** Whether the upsell has been answered, either way, for this order. */
+  const [askedMeal, setAskedMeal] = useState(false)
   const [fulfilment, setFulfilment] = useState('delivery')
   const [busy, setBusy] = useState(false)
-  const [placed, setPlaced] = useState<{ lines: OrderLine[]; fulfilment: string } | null>(null)
+  const [placed, setPlaced] = useState<{
+    lines: OrderLine[]
+    fulfilment: string
+    meals: number
+  } | null>(null)
   /** What the readout shows - follows the pizza, so it turns over mid-air. */
   const [shown, setShown] = useState<Flavor>(FLAVORS[0])
+
+  /**
+   * The draft, readable from callbacks that outlive the render they were made
+   * in - a topping that finishes streaming after the tap has to know whether
+   * it is still wanted.
+   */
+  const draftRef = useRef(draft)
+  draftRef.current = draft
 
   // ------------------------------------------------------------- engine ---
 
@@ -89,6 +107,7 @@ export default function OrderScene() {
     const start = async () => {
       handle = await loadScene((done, total) => setProgress(done / total))
       if (disposed) return
+      loadHandle.current = handle
 
       const renderer = new SceneRenderer(canvas, handle.assets, reduceMotion)
       const state = initialState()
@@ -185,6 +204,9 @@ export default function OrderScene() {
         rain(extra) {
           renderer.rain(extra)
         },
+        unrain(extra) {
+          renderer.unrain(extra)
+        },
         /**
          * The pizza goes in a box.
          *
@@ -198,10 +220,13 @@ export default function OrderScene() {
         addToOrder() {
           if (reduceMotion) {
             // The whole sequence is motion, so under reduce there is nothing to
-            // show. Land the pizza and let the order list do the talking.
+            // show. Land the pizza, put the box on the pile, and let the order
+            // list do the talking.
             const cycle = Math.floor(state.p) + 1
             while (plan.length <= cycle) plan.push(plan[plan.length - 1])
             state.p = cycle
+            state.stack += 1
+            renderer.clearToppings()
             return Promise.resolve()
           }
           const cycle = Math.floor(state.p)
@@ -219,14 +244,36 @@ export default function OrderScene() {
               .to(state, { boxIn: 1, duration: 0.55, ease: 'power2.out' }, 0)
               .to(state, { peelOut: 1, duration: 0.42, ease: 'power2.inOut' }, 0.12)
               .to(state, { p: target, duration: FLIP_DURATION, ease: 'none' }, 0.18)
-              .to(state, { lid: 1, duration: 0.24, ease: 'power2.out' }, 0.84)
+              // The lid. `lid` picks a frame rather than fading between two, so
+              // this tween is playing an animation, not dissolving one image
+              // into another - and it eases *in*, because a lid falls.
+              .to(state, { lid: 1, duration: 0.44, ease: 'power2.in' }, 0.82)
               // Hidden under a shut lid, so this is free - and it has to happen
-              // before the box leaves, or the pizza would stay behind on the
-              // counter while its box slid away.
-              .set(state, { pizzaOut: 1 }, 1.06)
-              .to(state, { boxIn: 0, duration: 0.5, ease: 'power2.in' }, 1.16)
-              .set(state, { lid: 0, pizzaOut: 0 }, 1.68)
-              .to(state, { peelOut: 0, duration: 0.4, ease: 'power2.out' }, 1.7)
+              // before the box travels, or the pizza would stay behind on the
+              // counter while its box left without it.
+              .set(state, { pizzaOut: 1 }, 1.28)
+              // Back down the counter to the pile, getting smaller as it goes.
+              .to(state, { boxAway: 1, duration: 0.62, ease: 'power2.inOut' }, 1.34)
+              .add(() => {
+                // The travelling box lands exactly on the next free slot, so
+                // handing it over to the pile changes nothing on screen.
+                state.stack += 1
+                state.boxIn = 0
+                state.boxAway = 0
+                state.lid = 0
+                state.pizzaOut = 0
+                renderer.clearToppings()
+              }, 1.96)
+              .to(state, { peelOut: 0, duration: 0.42, ease: 'power2.out' }, 1.98)
+          })
+        },
+        /** The fries and the cola, set down beside the pile. */
+        addMeal() {
+          gsap.to(state, {
+            sides: 1,
+            duration: reduceMotion ? 0 : 0.7,
+            ease: 'power2.out',
+            overwrite: true,
           })
         },
         flash() {
@@ -242,11 +289,22 @@ export default function OrderScene() {
           gsap.killTweensOf(state)
           Object.assign(state, initialState(), { p: Math.round(state.p) })
           heading = null
-          renderer.clearRain()
+          renderer.clearToppings()
         },
       }
 
       setReady(true)
+      // A handle on the scene for the screenshot harness and the console. Dev
+      // only: it exists to answer "what does the renderer actually think is on
+      // the pizza", which is not a question a shipped page needs to answer.
+      if (import.meta.env.DEV) {
+        ;(window as unknown as { __flipza?: unknown }).__flipza = {
+          state,
+          plan,
+          renderer,
+          assets: handle.assets,
+        }
+      }
       void handle.complete.catch((err) => console.error('[flipza] stream', err))
 
       return () => {
@@ -264,6 +322,7 @@ export default function OrderScene() {
     return () => {
       disposed = true
       engine.current = null
+      loadHandle.current = null
       if (tick) gsap.ticker.remove(tick)
       cleanupResize?.()
       handle?.cancel()
@@ -282,6 +341,9 @@ export default function OrderScene() {
   const go = useCallback((next: Step) => {
     setTouched(true)
     setStep(next)
+    // Opening the extras step is the earliest warning that the pieces are
+    // about to be needed, and it is a whole tap of notice.
+    if (next === 'extras') void loadHandle.current?.ensureToppings()
   }, [])
 
   const chooseFlavor = useCallback((flavor: Flavor) => {
@@ -298,13 +360,29 @@ export default function OrderScene() {
 
   const toggleExtra = useCallback((id: string) => {
     setTouched(true)
-    setDraft((d) => {
-      const on = d.extras.includes(id)
-      // Raining only on the way *on* is deliberate: taking an extra off is a
-      // correction, and replaying the animation backwards for it would make
-      // an undo louder than the thing it undid.
-      if (!on) engine.current?.rain(id)
-      return { ...d, extras: on ? d.extras.filter((e) => e !== id) : [...d.extras, id] }
+    const on = draftRef.current.extras.includes(id)
+    setDraft((d) => ({
+      ...d,
+      extras: on ? d.extras.filter((e) => e !== id) : [...d.extras, id],
+    }))
+
+    // Deliberately outside the updater above. React calls a state updater
+    // twice in development to catch impure ones, and an updater that also
+    // starts an animation duly starts it twice - which showed up as double
+    // toppings and was very easy to miss.
+    if (on) {
+      // The pieces stay on the pizza once they land, so un-choosing an extra
+      // has to take them off again - otherwise the pizza would keep wearing
+      // something that is no longer being paid for.
+      engine.current?.unrain(id)
+      return
+    }
+    // The extras step can be reached before the topping pieces have streamed
+    // in. Waiting on them rather than giving up means the first tap always
+    // does something; if it has been un-chosen again by the time they arrive,
+    // nothing falls.
+    void loadHandle.current?.ensureToppings().then(() => {
+      if (draftRef.current.extras.includes(id)) engine.current?.rain(id)
     })
   }, [])
 
@@ -331,7 +409,21 @@ export default function OrderScene() {
     setStep('order')
   }, [busy, draft])
 
+  const addMeal = useCallback(() => {
+    setMeals((m) => m + 1)
+    setAskedMeal(true)
+    engine.current?.addMeal()
+  }, [])
+
+  const declineMeal = useCallback(() => setAskedMeal(true), [])
+
   const setQty = useCallback((id: string, qty: number) => {
+    // The meal is not a line, it is a count - there is only one of it and it
+    // has no options, so it does not need an id, a flavour or a size.
+    if (id === 'meal') {
+      setMeals(Math.max(0, qty))
+      return
+    }
     setLines((ls) =>
       qty <= 0 ? ls.filter((l) => l.id !== id) : ls.map((l) => (l.id === id ? { ...l, qty } : l))
     )
@@ -341,13 +433,15 @@ export default function OrderScene() {
     if (!lines.length || busy) return
     setBusy(true)
     await engine.current?.flash()
-    setPlaced({ lines, fulfilment })
+    setPlaced({ lines, fulfilment, meals })
     setBusy(false)
-  }, [lines, fulfilment, busy])
+  }, [lines, fulfilment, meals, busy])
 
   const startOver = useCallback(() => {
     setPlaced(null)
     setLines([])
+    setMeals(0)
+    setAskedMeal(false)
     setDraft({ flavor: FLAVORS[0], size: DEFAULT_SIZE.id, extras: [] })
     setStep('flavour')
     engine.current?.reset()
@@ -358,6 +452,8 @@ export default function OrderScene() {
       step,
       draft,
       lines,
+      meals,
+      askedMeal,
       fulfilment,
       busy,
       go,
@@ -365,11 +461,30 @@ export default function OrderScene() {
       chooseSize,
       toggleExtra,
       addToOrder,
+      addMeal,
+      declineMeal,
       setQty,
       setFulfilment,
       place,
     }),
-    [step, draft, lines, fulfilment, busy, go, chooseFlavor, chooseSize, toggleExtra, addToOrder, setQty, place]
+    [
+      step,
+      draft,
+      lines,
+      meals,
+      askedMeal,
+      fulfilment,
+      busy,
+      go,
+      chooseFlavor,
+      chooseSize,
+      toggleExtra,
+      addToOrder,
+      addMeal,
+      declineMeal,
+      setQty,
+      place,
+    ]
   )
 
   const count = orderCount(lines)
@@ -420,6 +535,7 @@ export default function OrderScene() {
         <Placed
           lines={placed.lines}
           fulfilment={placed.fulfilment}
+          meals={placed.meals}
           onDone={startOver}
         />
       )}
@@ -442,7 +558,9 @@ interface Engine {
   demo(): void
   size(scale: number): void
   rain(extra: string): void
+  unrain(extra: string): void
   addToOrder(): Promise<void>
+  addMeal(): void
   flash(): Promise<void>
   reset(): void
 }

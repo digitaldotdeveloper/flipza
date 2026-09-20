@@ -6,7 +6,10 @@ transition between every state rather than a decoration on top of one. The fire
 in the oven behind it is running the whole time.
 
 You order by tapping: flavour → size → extras → the pizza goes in a box →
-checkout. Every step is something you watch happen on the counter.
+checkout. Every step is something you watch happen on the counter - the pizza
+grows when you pick a size, the extras you add land on it and stay there, the
+lid closes over it and the box joins the pile at the back, and the fries and
+cola you say yes to are set down beside it.
 
 ![Flipza on a phone](docs/shot-mobile.png)
 
@@ -55,8 +58,10 @@ tools/shot.mjs          drive the site through CDP and screenshot it
 
 Sources are stored as **lossless WebP** - the same pixels as the PNGs the
 generators write, in about 40% of the bytes. Everything the browser loads is
-WebP too: about 600KB before the site is interactive, 4.3MB in total for all
-55 pizza sprites, 18 flame frames, 51 topping pieces and the kitchen.
+WebP too: about 600KB before the site is interactive, and 3.4MB in total for
+all 55 pizza sprites, 18 flame frames, 51 topping pieces, the box, the sides
+and the kitchen. Sprites come in two sets and a screen only ever downloads the
+one it can show.
 
 ## Adding a flavour
 

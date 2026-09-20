@@ -7,16 +7,27 @@
  * is a storefront demo, and pretending to take a card would be the one
  * dishonest thing in it.
  */
-import { describeLine, fulfilmentById, grandTotal, linePrice, money, orderCount } from '../menu'
+import {
+  MEAL,
+  describeLine,
+  fulfilmentById,
+  grandTotal,
+  linePrice,
+  mealTotal,
+  money,
+  orderCount,
+} from '../menu'
 import type { OrderLine } from '../menu'
 
 export default function Placed({
   lines,
   fulfilment,
+  meals,
   onDone,
 }: {
   lines: OrderLine[]
   fulfilment: string
+  meals: number
   onDone: () => void
 }) {
   const f = fulfilmentById(fulfilment)
@@ -45,11 +56,20 @@ export default function Placed({
               <span>{money(linePrice(l))}</span>
             </li>
           ))}
+          {meals > 0 && (
+            <li>
+              <span>
+                {meals > 1 && <b>{meals}x </b>}
+                {MEAL.label}
+              </span>
+              <span>{money(mealTotal(meals))}</span>
+            </li>
+          )}
         </ul>
 
         <p className="placed__total">
           <span>Paid on {f.id === 'pickup' ? 'collection' : 'delivery'}</span>
-          <strong>{money(grandTotal(lines, fulfilment))}</strong>
+          <strong>{money(grandTotal(lines, fulfilment, meals))}</strong>
         </p>
 
         <button type="button" className="cta cta--go" onClick={onDone}>

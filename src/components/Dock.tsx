@@ -31,6 +31,10 @@ export interface Ctl {
   step: Step
   draft: Draft
   lines: OrderLine[]
+  /** Meals - fries and a cola - on the order. */
+  meals: number
+  /** Whether the meal has been offered and answered, either way. */
+  askedMeal: boolean
   fulfilment: string
   busy: boolean
   go(step: Step): void
@@ -38,6 +42,8 @@ export interface Ctl {
   chooseSize(id: string): void
   toggleExtra(id: string): void
   addToOrder(): void
+  addMeal(): void
+  declineMeal(): void
   setQty(lineId: string, qty: number): void
   setFulfilment(id: string): void
   place(): void
@@ -176,11 +182,13 @@ export default function Dock({ ctl }: { ctl: Ctl }) {
           <button
             type="button"
             className="cta cta--go"
-            disabled={!ctl.lines.length || ctl.busy}
+            disabled={(!ctl.lines.length && !ctl.meals) || ctl.busy}
             onClick={() => ctl.place()}
           >
             <span>Place order</span>
-            <span className="cta__price">{money(grandTotal(ctl.lines, ctl.fulfilment))}</span>
+            <span className="cta__price">
+              {money(grandTotal(ctl.lines, ctl.fulfilment, ctl.meals))}
+            </span>
           </button>
         )}
       </div>

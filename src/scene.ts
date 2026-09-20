@@ -1,5 +1,15 @@
 import spriteData from './sprite-data.json'
 import { asset } from './assets'
+import { PLATE_IMAGE } from './props'
+
+/**
+ * Apparent diameter of the pizza at rest, in plate pixels.
+ *
+ * Declared up here rather than with the rest of the scene geometry below
+ * because choosing a sprite set needs it, and that happens as this module is
+ * first evaluated.
+ */
+export const PIZZA_DIAMETER = 500
 
 export type Flavor = string
 
@@ -12,6 +22,16 @@ export interface SpriteMeta {
   /** Major/minor axes of the alpha mask - the pizza's apparent diameter. */
   major: number
   minor: number
+  /**
+   * Which way that major axis points, in radians, y down.
+   *
+   * With the two axes this describes the ellipse a flat disc makes when it is
+   * seen at an angle - which is what a pizza in mid-toss is - so anything lying
+   * on the pizza can be projected onto the same ellipse and squashed by the
+   * same amount. It is what keeps an added topping on the pizza rather than in
+   * front of it.
+   */
+  angle: number
 }
 
 interface SpriteData {
@@ -71,13 +91,39 @@ export const labelFor = (flavour: Flavor) => LABELS[flavour] ?? flavour.toUpperC
  * grow with the number of flavours rather than with the number of *pairs* of
  * them.
  */
+/**
+ * Which sprite set this screen gets.
+ *
+ * The pizza is drawn about 500 plate pixels across and the plate is scaled to
+ * fill the window, so a big or dense display asks for a sprite two or three
+ * times the size a phone does. Both sets are built; only one is downloaded.
+ *
+ * Decided from the window rather than from `devicePixelRatio` alone, because
+ * what matters is how many real pixels the pizza ends up covering, and that is
+ * a question about the window and the plate together. The measurements in
+ * sprite-data.json describe the standard set; the renderer rescales them by
+ * whichever bitmap it was handed, so nothing else has to know which set this
+ * is.
+ */
+const SPRITE_SET = (() => {
+  if (typeof window === 'undefined') return 'sprites'
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  const w = window.innerWidth * dpr
+  const h = window.innerHeight * dpr
+  // Matches the renderer's cover fit against the plate bitmap.
+  const k = Math.max(w / PLATE_IMAGE.width, h / PLATE_IMAGE.height)
+  // The widest the pizza is ever drawn: a large, at the top of its arc.
+  const needed = PIZZA_DIAMETER * 1.16 * 1.17 * k
+  return needed > 700 ? 'sprites-2x' : 'sprites'
+})()
+
 export const posesFor = (flavour: Flavor) =>
   Array.from({ length: POSE_COUNT }, (_, i) => {
     const name = `pizza-${flavour}-${i + 1}`
-    return { src: asset(`sprites/${name}.webp`), meta: data.sprites[name] }
+    return { src: asset(`${SPRITE_SET}/${name}.webp`), meta: data.sprites[name] }
   })
 
-export const PEEL = { src: asset('sprites/peel.webp'), meta: data.sprites.peel }
+export const PEEL = { src: asset(`${SPRITE_SET}/peel.webp`), meta: data.sprites.peel }
 
 /** Native size of the background plate. All scene coordinates are in its space. */
 export const PLATE = { src: asset('plate.webp'), width: 1672, height: 941 }
@@ -92,9 +138,6 @@ const PEEL_BLADE = { cx: 373, cy: 168, width: 725 }
 
 /** Pizza centroid, in plate pixels, when it is resting on the peel. */
 export const REST = { x: 838, y: 700 }
-
-/** Apparent diameter of the pizza at rest, in plate pixels. */
-export const PIZZA_DIAMETER = 500
 
 /**
  * Peel blade width relative to the pizza, and how far below it the blade sits.

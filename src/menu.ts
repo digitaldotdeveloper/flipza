@@ -11,9 +11,9 @@
 import { FLAVORS, labelFor } from './scene'
 import type { Flavor } from './scene'
 
-export const CURRENCY = '€'
+export const CURRENCY = '$'
 
-/** Formats a price the way the UI shows it everywhere: €12.50, never €12.5. */
+/** Formats a price the way the UI shows it everywhere: $12.50, never $12.5. */
 export const money = (v: number) => `${CURRENCY}${v.toFixed(2)}`
 
 interface FlavorInfo {
@@ -114,6 +114,22 @@ export function describeLine(line: OrderLine) {
   return parts.join(' · ')
 }
 
+// ------------------------------------------------------------------ meal ---
+
+/**
+ * The upsell, offered once, after the first pizza goes in a box.
+ *
+ * One item rather than a fries menu and a drinks menu: the question being
+ * asked is "do you want a meal", and answering it should be one tap. Anything
+ * finer belongs on a real menu, which this is not.
+ */
+export const MEAL = {
+  id: 'meal',
+  label: 'Fries & cola',
+  detail: 'Large fries, ice-cold cola',
+  price: 4.5,
+}
+
 // -------------------------------------------------------------- delivery ---
 
 export interface Fulfilment {
@@ -138,8 +154,12 @@ export const MENU = FLAVORS.map((f) => ({
   ...flavorInfo(f),
 }))
 
+/** What the meals on the order come to. */
+export const mealTotal = (meals: number) => meals * MEAL.price
+
 /** Order total including the fulfilment fee, which a free pickup waives. */
-export function grandTotal(lines: OrderLine[], fulfilment: string) {
-  const goods = orderTotal(lines)
-  return goods + (lines.length ? fulfilmentById(fulfilment).fee : 0)
+export function grandTotal(lines: OrderLine[], fulfilment: string, meals = 0) {
+  const goods = orderTotal(lines) + mealTotal(meals)
+  const anything = lines.length > 0 || meals > 0
+  return goods + (anything ? fulfilmentById(fulfilment).fee : 0)
 }

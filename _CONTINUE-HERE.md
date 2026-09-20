@@ -35,7 +35,7 @@ src/components/Placed.tsx       the confirmation
 
 sprites-src/     pizza-<flavour>-1..9, peel, plate         (lossless WebP)
 oven-src/        flame-00..10, embers                       "
-props-src/       box-open / box-mid / box-closed, topping-<extra> sheets
+props-src/       box-open / box-closed, side-fries / side-cola, topping sheets
 portrait-src/    portrait (the vertical outpaint)
 
 scripts/studio.mjs        the Gemini Studio client all generators share
@@ -48,15 +48,22 @@ scripts/gen-portrait.mjs  the kitchen extended vertically
 scripts/prepare-*.mjs     key, measure, cut and pack all of it into public/
 scripts/to-webp.mjs       PNG sources -> lossless WebP
 tools/shot.mjs            drive the site through CDP and screenshot it
+tools/probe.mjs           run one expression inside the running page
 ```
 
 `npm run prepare-all` runs the four prepare scripts in dependency order:
 oven (flameless plate) → portrait (extends it) → props → assets (encodes it).
 `npm run dev` does that first.
 
-Two generated manifests: `src/sprite-data.json` (poses) and `src/prop-data.json`
-(fire, plate geometry, box, topping counts). Both are written by scripts and
-read by the runtime; neither is edited by hand.
+Two generated manifests: `src/sprite-data.json` (poses, including each pose's
+ellipse) and `src/prop-data.json` (fire, plate geometry, box frames and hinge,
+sides, topping counts). Both are written by scripts and read by the runtime;
+neither is edited by hand.
+
+`window.__flipza` exists in a dev build - state, plan, renderer and assets -
+which is what `tools/probe.mjs` reads. It is the fastest way to answer "what
+does the renderer actually think is there", and it found the silent
+topping-loading bug below in one run.
 
 ---
 
@@ -120,28 +127,78 @@ the counter rather than a control that changes a number:
 | --- | --- | --- |
 | flavour | picks the pizza | tosses it |
 | size | S / M / L | the pizza grows on the peel |
-| extras | toggles a topping | that topping rains down and melts in |
-| add to order | commits the pizza | box slides in, peel pulls out, pizza drops in, lid closes, box leaves |
+| extras | toggles a topping | that topping rains down and **stays on it** |
+| add to order | commits the pizza | box slides in, peel pulls out, pizza drops in, lid closes, box goes back to the pile |
+| order | quantities, delivery, the meal | fries and a cola are set down beside the pile |
 
-Then the order panel: quantities, delivery or pickup, a total, and a
-confirmation. **There is no payment and no kitchen at the other end** — it is a
-storefront demo and the confirmation says so. Do not add a card form to it.
+Everything ordered stays on screen: the boxes pile up at the back of the
+counter and the sides stand beside them, so what has been bought is visible
+while it is being paid for rather than only listed. **There is no payment and no
+kitchen at the other end** — it is a storefront demo and the confirmation says
+so. Do not add a card form to it.
 
-Three things worth not re-deciding:
+Four things worth not re-deciding:
 
-- **Extras melt in, they do not stay.** Staying would mean carrying them through
-  the tumble, and a topping pinned to a pizza rotating in three dimensions has
-  to rotate with it — the poses are photographs, not a model, so there is no
-  axis to rotate about. Melting in is also what happens to a topping dropped on
-  a hot pizza. Raining only happens on the way *on*: replaying it backwards for
-  an un-toggle makes an undo louder than the thing it undid.
-- **The lid closes by cross-dissolving three photographs of one box.** The
-  second take of the closed box came back with the lid halfway down, which is
-  worth more than another closed one: open → half → shut reads as a lid falling,
-  where open → shut reads as one box being swapped for another. The closed box
-  is drawn *after* the pizza, which is what covering a pizza with a lid is.
+- **The extras stay on the pizza.** They used to melt in a moment after landing,
+  which looked fine and was exactly wrong: the reason to watch a topping land is
+  to see it on the pizza you are about to buy, and again at checkout. Keeping
+  them means projecting them - see *toppings that stay* below.
+- **The lid is computed, not photographed.** See *the lid* below; two batches of
+  generated in-between frames failed before this was accepted.
+- **The pile stands at the back of the counter**, not the near edge. On a phone
+  the order step opens the tallest dock of the four and anything near the camera
+  ends up behind it - the back of the counter is both where finished boxes would
+  actually go and the only part a phone can still see at checkout. On a wide
+  screen the whole group slides 150px right, off the oven mouth and onto the
+  clear stretch of counter that only a wide window can see.
 - **The dock is not dimmed while a sequence plays**, only made non-interactive.
   Dimming it reads as an error rather than as a wait.
+
+## Toppings that stay
+
+A pizza is a flat disc, and a flat disc seen at an angle is an ellipse.
+`prepare-assets` measures that ellipse for every pose - both axes, and now the
+**direction of the long one** (`angle` in sprite-data.json, from the same second
+moments the axes come from). So an extra is stored as a position on a *unit
+disc* - the pizza's own coordinates - and every frame that position is mapped
+onto whichever ellipse the pizza is currently showing, with the piece squashed
+by the same `minor/major` it would be if it were lying on that surface.
+
+That is what makes it read as *on* the pizza rather than in front of it: near
+the top of the toss, where the pizza is nearly edge-on, its toppings are nearly
+edge-on too. It works because **all nine poses show the topped side** - the
+pizza tilts and turns but never shows its underside, so there is never a frame
+where the toppings should be hidden. Check that before generating a tenth pose.
+
+The spin of the pizza about its own axis is not modelled, and does not need to
+be: the scatter is random, so there is no pattern to give it away.
+
+## The lid
+
+It is not a set of photographs, and not for want of trying. Two batches were
+generated of the same box with its lid a quarter, a third, a half and three
+quarters of the way down. What came back both times was the lid still standing
+up, or leaning off to one side - **from this camera a lid rotating about a hinge
+at the back mostly foreshortens rather than sweeps**, and that turns out to be a
+very hard thing to ask a generator for. Describing it as appearance rather than
+as mechanism ("it gets shorter from top to bottom, it stays exactly as wide, it
+must not tilt left or right") did not fix it either.
+
+So the in-between is computed. `prepare-props` finds the hinge from the width
+profile - the lid stands roughly straight up so its width barely changes down
+its length, while the base widens towards the camera, and the boundary is the
+one row where the silhouette jumps (508px to 550px on this art, at 0.638 of the
+height). The renderer draws the base where it always is and the lid above it
+squashed towards the hinge by `cos`, which is exactly what the projection of a
+rotating lid does - and unlike a generated frame it can be put at any angle at
+any moment. The shut box then fades in over the last of the fall, because a lid
+squashed to nothing is a line across the back of the box where a shut box is a
+lid lying over the whole base.
+
+Only two frames are therefore needed, `box-open` and `box-closed`, and they are
+registered on their **base** by prepare-props - not on their centroid, which an
+open lid leaning back drags sideways - and scaled so their bases come out the
+same width, because separate photographs come back a few per cent apart.
 
 ---
 
@@ -213,18 +270,42 @@ The old loader blocked on all 64 bitmaps before the first frame. Now:
 
 - **critical**: plate, peel, and pose 1 of every flavour — about 8 images,
   ~600KB. Enough to draw a resting pizza and let someone tap.
-- **streamed**: poses 2..9 per flavour (two flavours at a time), then the fire,
-  then the box and the toppings — in the order they can first be needed.
-- `ensure(flavour)` jumps a flavour to the front when it is tapped. If it has
-  not arrived, the renderer falls back to pose 1, so an early tap cuts instead
-  of tumbling rather than failing.
+- **streamed**: the fire, then poses 2..9 per flavour, then the toppings, then
+  the box and the sides — in the order each can first be *seen*, which is not
+  the order each can first be needed.
+- Every group is a `once()` promise, so anything reachable early can be pulled
+  forward and the stream simply awaits the same promise: `ensure(flavour)` when
+  a flavour is tapped, `ensureToppings()` when the extras step opens. Tapping an
+  extra that has not streamed in yet waits for it rather than doing nothing.
 
-Total download 4.3MB, down from 6.7MB, from three changes: the bare
-`pizza-1..9` sprites are no longer emitted at all (they are *sources* —
-`gen-flavor.mjs` repaints them into the per-flavour sets, and the runtime only
-ever asks for `pizza-<flavour>-<n>`; 2.2MB of files nothing had ever requested),
-sprite quality 88 → 82, and a 960px cap on the pizza's major axis. The cap costs
-nothing below 4K: the pizza is drawn ~570px wide on a 1080p screen.
+**Order it by what is seen, and let taps jump the queue.** Both halves of that
+were learned the hard way. The fire went last on the theory that nothing needs
+it - and it arrived eight seconds into a cold load, so the oven was a photograph
+of embers for the whole first impression. Then the toppings went last on the
+same theory, and tapping an extra silently did nothing for the first ten
+seconds: `rain()` returns quietly when the pieces are not there, nothing errors,
+and it took a `tools/probe.mjs` session to find. If a feature is doing nothing
+and there is no error, look at where its assets are in this queue first.
+
+Total download on a normal screen **3.4MB**, down from 6.7MB, and about 600KB of
+that before the page is interactive. Four things got it there:
+
+- the bare `pizza-1..9` sprites are no longer emitted at all - they are
+  *sources*, which `gen-flavor.mjs` repaints into the per-flavour sets, and the
+  runtime only ever asks for `pizza-<flavour>-<n>`. 2.2MB of files nothing had
+  ever requested.
+- **two sprite sets**, `sprites/` capped at 620px and `sprites-2x/` at 980px,
+  chosen in scene.ts from the window and the plate together (what matters is how
+  many real pixels the pizza ends up covering). Only one is ever downloaded.
+  sprite-data.json describes the standard set and the renderer rescales the
+  measurements by whatever bitmap arrived, so nothing else knows which set it is.
+- **pose 1 is encoded well and poses 2-9 are not** (86 against 62). They are not
+  looked at for remotely similar lengths of time: pose 1 is on screen for the
+  whole order, while poses 2 to 9 each appear for about seventy milliseconds
+  under motion blur - and they are eight ninths of the bytes. This is worth more
+  than the resolution cap was: capping 960 → 620 only took 6% off, because the
+  bytes were in the quality, not the pixels.
+- the plate is encoded at quality 80 and is 188KB for 1672x2021.
 
 ---
 
@@ -311,6 +392,24 @@ nothing below 4K: the pizza is drawn ~570px wide on a 1080p screen.
   further the toppings move from the source the less the geometry is anchored to
   it. If it ever needs fixing, change the prompt rather than spending takes.
 
+**Keying: magenta lifts red and blue together**
+- Clamping blue alone - the first despill - turns spill from pink into red and
+  leaves it exactly as visible. What separates spill from something genuinely
+  red is that a chilli or a red carton has its blue down near its green, while a
+  white cup with magenta bouncing off it has *both* above green. So the rule is
+  both-above-green, and both are pulled back to it.
+- That only fixes spill on the way out. A white object generated on a magenta
+  background can come back **actually pink**, which is not a keying problem at
+  all - the generator lit it that way. The prompt has to say so: "lit only by
+  that warm indoor light, the background colour must not tint it anywhere,
+  white card stays pure white".
+
+**React runs a state updater twice in development**
+- Which means an updater that also starts an animation starts it twice. This
+  showed up as double toppings and was easy to miss, because in production it
+  is right. Side effects go outside the updater, and anything they need from
+  the current state comes from a ref.
+
 **Sources are WebP now**
 - Lossless WebP is **the same pixels** as the PNG in about 40% of the bytes, and
   every measurement downstream comes out identical. The one exception is RGB
@@ -328,9 +427,12 @@ nothing below 4K: the pizza is drawn ~570px wide on a 1080p screen.
   picker is the single best idea left in this project — a six-way segmented
   control looks like every other website, a chalkboard does not. The menu order
   in `scene.ts` already matches the board, so they can no longer disagree.
-- **The neon sign could be the readout**, and the box stack top-right could be
-  the cart that grows as pizzas are added. The box already flies off to the
-  right toward it.
+- **The neon sign could be the readout.** The pile at the back of the counter
+  is already the cart.
+- **The pizza in the box is only briefly visible.** The lid closes over it about
+  four tenths of a second after it lands. Holding it open a beat longer - or
+  leaving the top box of the pile open - would show more of what was just
+  built.
 - **Sound.** A whoosh, a slap on landing, the fire. Muted by default. Half of
   what would make this feel expensive.
 - **The menu does not exist as text.** A canvas-only site is invisible to

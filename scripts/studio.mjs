@@ -35,12 +35,21 @@ export async function state() {
   return res.json()
 }
 
-/** Uploads a local PNG so Gemini can edit it. Returns an attachment ref. */
+/**
+ * Uploads a local image so Gemini can edit it. Returns an attachment ref.
+ *
+ * The media type comes from the extension rather than being assumed to be
+ * PNG: sources are stored as WebP now, and WebP bytes labelled as PNG are
+ * either rejected or silently misread.
+ */
+const MIME = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }
+
 export async function upload(file) {
   const data = await readFile(file)
+  const mime = MIME[path.extname(file).toLowerCase()] ?? 'image/png'
   const out = await api('/api/upload', {
     name: path.basename(file),
-    dataUrl: `data:image/png;base64,${data.toString('base64')}`,
+    dataUrl: `data:${mime};base64,${data.toString('base64')}`,
   })
   if (out.error) throw new Error(`upload ${path.basename(file)}: ${out.error}`)
   return { kind: 'up', file: out.file }

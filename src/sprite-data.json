@@ -10,12 +10,13 @@
   ],
   "sprites": {
     "peel": {
-      "width": 776,
-      "height": 699,
-      "cx": 387.56,
-      "cy": 212.26,
-      "major": 728.8,
-      "minor": 570.9
+      "width": 660,
+      "height": 595,
+      "cx": 329.7,
+      "cy": 180.57,
+      "major": 620,
+      "minor": 485.67,
+      "angle": 0.0534
     },
     "pizza-diavola-1": {
       "width": 562,
@@ -23,215 +24,242 @@
       "cx": 276.38,
       "cy": 128.86,
       "major": 566.41,
-      "minor": 256.77
+      "minor": 256.77,
+      "angle": -0.0534
     },
     "pizza-diavola-2": {
-      "width": 612,
-      "height": 300,
-      "cx": 303.46,
-      "cy": 149.57,
-      "major": 638.53,
-      "minor": 250.3
+      "width": 594,
+      "height": 291,
+      "cx": 294.66,
+      "cy": 145.23,
+      "major": 620,
+      "minor": 243.04,
+      "angle": -0.2748
     },
     "pizza-diavola-3": {
-      "width": 763,
-      "height": 432,
-      "cx": 380.76,
-      "cy": 216.59,
-      "major": 814.57,
-      "minor": 316.7
+      "width": 581,
+      "height": 329,
+      "cx": 289.81,
+      "cy": 164.86,
+      "major": 620,
+      "minor": 241.05,
+      "angle": -0.3879
     },
     "pizza-diavola-4": {
-      "width": 613,
-      "height": 450,
-      "cx": 310.43,
-      "cy": 229.99,
-      "major": 717.86,
-      "minor": 250.91
+      "width": 529,
+      "height": 389,
+      "cx": 268.11,
+      "cy": 198.64,
+      "major": 620,
+      "minor": 216.71,
+      "angle": -0.5726
     },
     "pizza-diavola-5": {
-      "width": 695,
-      "height": 395,
-      "cx": 344.66,
-      "cy": 197.87,
-      "major": 753.76,
-      "minor": 270.76
+      "width": 572,
+      "height": 325,
+      "cx": 283.5,
+      "cy": 162.76,
+      "major": 620,
+      "minor": 222.71,
+      "angle": -0.3977
     },
     "pizza-diavola-6": {
-      "width": 679,
-      "height": 409,
-      "cx": 336.56,
-      "cy": 204.79,
-      "major": 726.9,
-      "minor": 311.6
+      "width": 579,
+      "height": 349,
+      "cx": 287.07,
+      "cy": 174.67,
+      "major": 620,
+      "minor": 265.78,
+      "angle": -0.3964
     },
     "pizza-diavola-7": {
-      "width": 619,
-      "height": 398,
-      "cx": 312.18,
-      "cy": 203.01,
-      "major": 680.08,
-      "minor": 282.6
+      "width": 564,
+      "height": 363,
+      "cx": 284.61,
+      "cy": 185.07,
+      "major": 620,
+      "minor": 257.63,
+      "angle": -0.4504
     },
     "pizza-diavola-8": {
-      "width": 742,
-      "height": 432,
-      "cx": 382.45,
-      "cy": 223.67,
-      "major": 818.26,
-      "minor": 268.31
+      "width": 562,
+      "height": 327,
+      "cx": 289.79,
+      "cy": 169.47,
+      "major": 620,
+      "minor": 203.3,
+      "angle": -0.4353
     },
     "pizza-diavola-9": {
-      "width": 784,
-      "height": 342,
-      "cx": 391.12,
-      "cy": 170.6,
-      "major": 791.01,
-      "minor": 339.47
+      "width": 615,
+      "height": 268,
+      "cx": 306.57,
+      "cy": 133.71,
+      "major": 620,
+      "minor": 266.08,
+      "angle": -0.0196
     },
     "pizza-formaggi-1": {
-      "width": 865,
-      "height": 444,
-      "cx": 425.73,
-      "cy": 222.51,
-      "major": 872.01,
-      "minor": 440.77
+      "width": 615,
+      "height": 316,
+      "cx": 302.69,
+      "cy": 158.2,
+      "major": 620,
+      "minor": 313.39,
+      "angle": -0.0705
     },
     "pizza-formaggi-2": {
-      "width": 613,
-      "height": 300,
-      "cx": 304.52,
-      "cy": 149.57,
-      "major": 638.46,
-      "minor": 250.22
+      "width": 595,
+      "height": 291,
+      "cx": 295.71,
+      "cy": 145.24,
+      "major": 620,
+      "minor": 242.99,
+      "angle": -0.2748
     },
     "pizza-formaggi-3": {
-      "width": 763,
-      "height": 432,
-      "cx": 380.7,
-      "cy": 216.63,
-      "major": 814.6,
-      "minor": 316.73
+      "width": 581,
+      "height": 329,
+      "cx": 289.75,
+      "cy": 164.88,
+      "major": 620,
+      "minor": 241.07,
+      "angle": -0.3876
     },
     "pizza-formaggi-4": {
-      "width": 613,
-      "height": 450,
-      "cx": 310.48,
-      "cy": 229.91,
-      "major": 717.83,
-      "minor": 250.87
+      "width": 529,
+      "height": 389,
+      "cx": 268.17,
+      "cy": 198.58,
+      "major": 620,
+      "minor": 216.68,
+      "angle": -0.5724
     },
     "pizza-formaggi-5": {
-      "width": 695,
-      "height": 395,
-      "cx": 344.67,
-      "cy": 197.78,
-      "major": 753.71,
-      "minor": 270.89
+      "width": 572,
+      "height": 325,
+      "cx": 283.52,
+      "cy": 162.69,
+      "major": 620,
+      "minor": 222.83,
+      "angle": -0.3978
     },
     "pizza-formaggi-6": {
-      "width": 679,
-      "height": 409,
-      "cx": 336.56,
-      "cy": 204.81,
-      "major": 726.86,
-      "minor": 311.69
+      "width": 579,
+      "height": 349,
+      "cx": 287.08,
+      "cy": 174.7,
+      "major": 620,
+      "minor": 265.87,
+      "angle": -0.3964
     },
     "pizza-formaggi-7": {
-      "width": 619,
-      "height": 398,
-      "cx": 312.16,
-      "cy": 202.97,
-      "major": 679.92,
-      "minor": 282.58
+      "width": 564,
+      "height": 363,
+      "cx": 284.65,
+      "cy": 185.08,
+      "major": 620,
+      "minor": 257.68,
+      "angle": -0.4504
     },
     "pizza-formaggi-8": {
-      "width": 742,
-      "height": 432,
-      "cx": 382.48,
-      "cy": 223.68,
-      "major": 818.3,
-      "minor": 268.4
+      "width": 562,
+      "height": 327,
+      "cx": 289.79,
+      "cy": 169.47,
+      "major": 620,
+      "minor": 203.36,
+      "angle": -0.4352
     },
     "pizza-formaggi-9": {
-      "width": 785,
-      "height": 342,
-      "cx": 391.1,
-      "cy": 170.57,
-      "major": 791.04,
-      "minor": 339.3
+      "width": 615,
+      "height": 268,
+      "cx": 306.54,
+      "cy": 133.69,
+      "major": 620,
+      "minor": 265.94,
+      "angle": -0.0198
     },
     "pizza-margherita-1": {
-      "width": 854,
-      "height": 399,
-      "cx": 420.72,
-      "cy": 199.41,
-      "major": 859.21,
-      "minor": 396.08
+      "width": 616,
+      "height": 288,
+      "cx": 303.59,
+      "cy": 143.89,
+      "major": 620,
+      "minor": 285.81,
+      "angle": -0.0542
     },
     "pizza-margherita-2": {
-      "width": 612,
-      "height": 300,
-      "cx": 303.5,
-      "cy": 149.59,
-      "major": 638.53,
-      "minor": 250.25
+      "width": 594,
+      "height": 291,
+      "cx": 294.69,
+      "cy": 145.25,
+      "major": 620,
+      "minor": 242.99,
+      "angle": -0.2748
     },
     "pizza-margherita-3": {
-      "width": 763,
-      "height": 431,
-      "cx": 380.7,
-      "cy": 215.61,
-      "major": 814.58,
-      "minor": 316.52
+      "width": 581,
+      "height": 328,
+      "cx": 289.76,
+      "cy": 164.11,
+      "major": 620,
+      "minor": 240.91,
+      "angle": -0.3878
     },
     "pizza-margherita-4": {
-      "width": 613,
-      "height": 449,
-      "cx": 310.42,
-      "cy": 230.02,
-      "major": 717.73,
-      "minor": 250.89
+      "width": 530,
+      "height": 388,
+      "cx": 268.15,
+      "cy": 198.7,
+      "major": 620,
+      "minor": 216.73,
+      "angle": -0.5726
     },
     "pizza-margherita-5": {
-      "width": 695,
-      "height": 395,
-      "cx": 344.66,
-      "cy": 197.81,
-      "major": 753.66,
-      "minor": 270.9
+      "width": 572,
+      "height": 325,
+      "cx": 283.53,
+      "cy": 162.73,
+      "major": 620,
+      "minor": 222.85,
+      "angle": -0.3977
     },
     "pizza-margherita-6": {
-      "width": 679,
-      "height": 409,
-      "cx": 336.61,
-      "cy": 204.79,
-      "major": 726.81,
-      "minor": 311.54
+      "width": 579,
+      "height": 349,
+      "cx": 287.15,
+      "cy": 174.7,
+      "major": 620,
+      "minor": 265.76,
+      "angle": -0.3964
     },
     "pizza-margherita-7": {
-      "width": 619,
-      "height": 398,
-      "cx": 312.12,
-      "cy": 203.03,
-      "major": 679.9,
-      "minor": 282.72
+      "width": 564,
+      "height": 363,
+      "cx": 284.63,
+      "cy": 185.14,
+      "major": 620,
+      "minor": 257.81,
+      "angle": -0.4505
     },
     "pizza-margherita-8": {
-      "width": 742,
-      "height": 432,
-      "cx": 382.51,
-      "cy": 223.64,
-      "major": 818.3,
-      "minor": 268.4
+      "width": 562,
+      "height": 327,
+      "cx": 289.82,
+      "cy": 169.45,
+      "major": 620,
+      "minor": 203.36,
+      "angle": -0.4354
     },
     "pizza-margherita-9": {
-      "width": 785,
-      "height": 342,
-      "cx": 391.18,
-      "cy": 170.56,
-      "major": 791.17,
-      "minor": 339.39
+      "width": 615,
+      "height": 268,
+      "cx": 306.55,
+      "cy": 133.66,
+      "major": 620,
+      "minor": 265.97,
+      "angle": -0.0198
     },
     "pizza-pepperoni-1": {
       "width": 563,
@@ -239,71 +267,80 @@
       "cx": 277.28,
       "cy": 128.85,
       "major": 566.25,
-      "minor": 256.6
+      "minor": 256.6,
+      "angle": -0.0535
     },
     "pizza-pepperoni-2": {
-      "width": 612,
-      "height": 300,
-      "cx": 303.5,
-      "cy": 149.6,
-      "major": 637.51,
-      "minor": 249.56
+      "width": 595,
+      "height": 292,
+      "cx": 295.17,
+      "cy": 145.49,
+      "major": 620,
+      "minor": 242.7,
+      "angle": -0.275
     },
     "pizza-pepperoni-3": {
-      "width": 763,
-      "height": 431,
-      "cx": 380.72,
-      "cy": 215.6,
-      "major": 814.71,
-      "minor": 316.65
+      "width": 581,
+      "height": 328,
+      "cx": 289.73,
+      "cy": 164.07,
+      "major": 620,
+      "minor": 240.97,
+      "angle": -0.3879
     },
     "pizza-pepperoni-4": {
-      "width": 613,
-      "height": 450,
-      "cx": 310.36,
-      "cy": 230,
-      "major": 717.9,
-      "minor": 250.92
+      "width": 529,
+      "height": 389,
+      "cx": 268.03,
+      "cy": 198.63,
+      "major": 620,
+      "minor": 216.7,
+      "angle": -0.5725
     },
     "pizza-pepperoni-5": {
-      "width": 694,
-      "height": 395,
-      "cx": 343.65,
-      "cy": 197.86,
-      "major": 753.61,
-      "minor": 270.73
+      "width": 571,
+      "height": 325,
+      "cx": 282.72,
+      "cy": 162.78,
+      "major": 620,
+      "minor": 222.73,
+      "angle": -0.3978
     },
     "pizza-pepperoni-6": {
-      "width": 679,
-      "height": 409,
-      "cx": 336.57,
-      "cy": 204.79,
-      "major": 726.83,
-      "minor": 311.56
+      "width": 579,
+      "height": 349,
+      "cx": 287.1,
+      "cy": 174.69,
+      "major": 620,
+      "minor": 265.77,
+      "angle": -0.3962
     },
     "pizza-pepperoni-7": {
-      "width": 619,
-      "height": 398,
-      "cx": 312.19,
-      "cy": 202.99,
-      "major": 679.83,
-      "minor": 282.47
+      "width": 565,
+      "height": 363,
+      "cx": 284.72,
+      "cy": 185.12,
+      "major": 620,
+      "minor": 257.61,
+      "angle": -0.4504
     },
     "pizza-pepperoni-8": {
-      "width": 742,
-      "height": 432,
-      "cx": 382.47,
-      "cy": 223.69,
-      "major": 818.3,
-      "minor": 268.47
+      "width": 562,
+      "height": 327,
+      "cx": 289.79,
+      "cy": 169.49,
+      "major": 620,
+      "minor": 203.41,
+      "angle": -0.4356
     },
     "pizza-pepperoni-9": {
-      "width": 785,
-      "height": 342,
-      "cx": 391.18,
-      "cy": 170.53,
-      "major": 791.07,
-      "minor": 339.43
+      "width": 615,
+      "height": 268,
+      "cx": 306.59,
+      "cy": 133.65,
+      "major": 620,
+      "minor": 266.03,
+      "angle": -0.0197
     },
     "pizza-speciale-1": {
       "width": 562,
@@ -311,71 +348,80 @@
       "cx": 276.35,
       "cy": 128.83,
       "major": 566.38,
-      "minor": 256.62
+      "minor": 256.62,
+      "angle": -0.0535
     },
     "pizza-speciale-2": {
-      "width": 613,
-      "height": 301,
-      "cx": 304.47,
-      "cy": 149.57,
-      "major": 638.4,
-      "minor": 250.31
+      "width": 595,
+      "height": 292,
+      "cx": 295.7,
+      "cy": 145.26,
+      "major": 620,
+      "minor": 243.1,
+      "angle": -0.275
     },
     "pizza-speciale-3": {
-      "width": 763,
-      "height": 431,
-      "cx": 380.69,
-      "cy": 215.62,
-      "major": 813.96,
-      "minor": 316.14
+      "width": 581,
+      "height": 328,
+      "cx": 289.98,
+      "cy": 164.24,
+      "major": 620,
+      "minor": 240.81,
+      "angle": -0.3877
     },
     "pizza-speciale-4": {
-      "width": 613,
-      "height": 450,
-      "cx": 310.41,
-      "cy": 229.97,
-      "major": 717.83,
-      "minor": 250.89
+      "width": 529,
+      "height": 389,
+      "cx": 268.11,
+      "cy": 198.63,
+      "major": 620,
+      "minor": 216.69,
+      "angle": -0.5725
     },
     "pizza-speciale-5": {
-      "width": 695,
-      "height": 395,
-      "cx": 344.65,
-      "cy": 197.85,
-      "major": 753.52,
-      "minor": 270.82
+      "width": 572,
+      "height": 325,
+      "cx": 283.58,
+      "cy": 162.79,
+      "major": 620,
+      "minor": 222.83,
+      "angle": -0.3977
     },
     "pizza-speciale-6": {
-      "width": 679,
-      "height": 409,
-      "cx": 336.51,
-      "cy": 204.76,
-      "major": 727.03,
-      "minor": 311.54
+      "width": 579,
+      "height": 349,
+      "cx": 286.97,
+      "cy": 174.62,
+      "major": 620,
+      "minor": 265.68,
+      "angle": -0.3965
     },
     "pizza-speciale-7": {
-      "width": 619,
-      "height": 398,
-      "cx": 312.21,
-      "cy": 202.96,
-      "major": 679.78,
-      "minor": 282.58
+      "width": 565,
+      "height": 363,
+      "cx": 284.76,
+      "cy": 185.11,
+      "major": 620,
+      "minor": 257.73,
+      "angle": -0.4506
     },
     "pizza-speciale-8": {
-      "width": 742,
-      "height": 432,
-      "cx": 382.53,
-      "cy": 223.64,
-      "major": 818.3,
-      "minor": 268.42
+      "width": 562,
+      "height": 327,
+      "cx": 289.83,
+      "cy": 169.44,
+      "major": 620,
+      "minor": 203.38,
+      "angle": -0.4354
     },
     "pizza-speciale-9": {
-      "width": 784,
-      "height": 342,
-      "cx": 391.12,
-      "cy": 170.55,
-      "major": 791.04,
-      "minor": 339.36
+      "width": 614,
+      "height": 268,
+      "cx": 306.55,
+      "cy": 133.68,
+      "major": 620,
+      "minor": 265.99,
+      "angle": -0.0198
     },
     "pizza-veggie-1": {
       "width": 562,
@@ -383,71 +429,80 @@
       "cx": 276.29,
       "cy": 128.82,
       "major": 566.33,
-      "minor": 256.73
+      "minor": 256.73,
+      "angle": -0.0534
     },
     "pizza-veggie-2": {
-      "width": 613,
-      "height": 300,
-      "cx": 304.42,
-      "cy": 149.59,
-      "major": 638.35,
-      "minor": 250.24
+      "width": 595,
+      "height": 291,
+      "cx": 295.67,
+      "cy": 145.29,
+      "major": 620,
+      "minor": 243.05,
+      "angle": -0.2749
     },
     "pizza-veggie-3": {
-      "width": 763,
-      "height": 431,
-      "cx": 380.75,
-      "cy": 215.57,
-      "major": 814.72,
-      "minor": 316.72
+      "width": 581,
+      "height": 328,
+      "cx": 289.75,
+      "cy": 164.05,
+      "major": 620,
+      "minor": 241.02,
+      "angle": -0.3877
     },
     "pizza-veggie-4": {
-      "width": 613,
-      "height": 450,
-      "cx": 310.38,
-      "cy": 229.97,
-      "major": 717.78,
-      "minor": 250.83
+      "width": 529,
+      "height": 389,
+      "cx": 268.1,
+      "cy": 198.64,
+      "major": 620,
+      "minor": 216.66,
+      "angle": -0.5725
     },
     "pizza-veggie-5": {
-      "width": 695,
-      "height": 395,
-      "cx": 344.65,
-      "cy": 197.81,
-      "major": 753.7,
-      "minor": 270.79
+      "width": 572,
+      "height": 325,
+      "cx": 283.51,
+      "cy": 162.72,
+      "major": 620,
+      "minor": 222.75,
+      "angle": -0.3979
     },
     "pizza-veggie-6": {
-      "width": 679,
-      "height": 409,
-      "cx": 336.58,
-      "cy": 204.78,
-      "major": 726.94,
-      "minor": 311.61
+      "width": 579,
+      "height": 349,
+      "cx": 287.07,
+      "cy": 174.65,
+      "major": 620,
+      "minor": 265.77,
+      "angle": -0.3962
     },
     "pizza-veggie-7": {
-      "width": 619,
-      "height": 398,
-      "cx": 312.18,
-      "cy": 202.95,
-      "major": 680.03,
-      "minor": 282.64
+      "width": 564,
+      "height": 363,
+      "cx": 284.62,
+      "cy": 185.03,
+      "major": 620,
+      "minor": 257.69,
+      "angle": -0.4506
     },
     "pizza-veggie-8": {
-      "width": 742,
-      "height": 432,
-      "cx": 382.45,
-      "cy": 223.69,
-      "major": 818.23,
-      "minor": 268.38
+      "width": 562,
+      "height": 327,
+      "cx": 289.79,
+      "cy": 169.49,
+      "major": 620,
+      "minor": 203.36,
+      "angle": -0.4354
     },
     "pizza-veggie-9": {
-      "width": 785,
-      "height": 342,
-      "cx": 391.12,
-      "cy": 170.49,
-      "major": 791.11,
-      "minor": 339.49
+      "width": 615,
+      "height": 268,
+      "cx": 306.52,
+      "cy": 133.61,
+      "major": 620,
+      "minor": 266.06,
+      "angle": -0.0198
     }
   }
 }

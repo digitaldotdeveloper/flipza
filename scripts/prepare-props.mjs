@@ -2,9 +2,8 @@
  * Cuts what gen-props.mjs generated into runtime sprites.
  *
  *   props-src/topping-<id>.png  ->  public/toppings/<id>-NN.webp
- *   props-src/box-open.png      ->  public/props/box-open.webp
- *   props-src/box-mid.png       ->  public/props/box-mid.webp
- *   props-src/box-closed.png    ->  public/props/box-closed.webp
+ *   props-src/box-*             ->  public/props/box-NN.webp (lid up -> shut)
+ *   props-src/side-*            ->  public/props/side-*.webp
  *                               ->  src/prop-data.json
  *
  * Sources are only ever read.
@@ -142,9 +141,24 @@ function key(img) {
     } else if (v > 1) {
       data[o + 3] = Math.round((255 * (v - 1)) / (SOFT + 1))
     }
-    // Despill: magenta pushes blue, and almost nothing on a pizza is blue.
-    if (data[o + 3] && data[o + 2] > data[o + 1] + 12) {
-      data[o + 2] = data[o + 1] + 12
+    // Despill.
+    //
+    // Magenta lifts red and blue *together*, which is what separates spill
+    // from anything that is genuinely red: a chilli or a red carton has its
+    // blue down near its green, while a white cup with magenta bouncing off it
+    // has both above. So a pixel with red and blue both above green is spill,
+    // and both are pulled back towards it. Clamping blue alone - which is what
+    // this did at first - turns the spill from pink to red and leaves it just
+    // as visible.
+    if (data[o + 3]) {
+      const r = data[o]
+      const g = data[o + 1]
+      const b = data[o + 2]
+      if (r > g + 18 && b > g + 18) {
+        const cut = Math.min(Math.min(r, b) - g, 90)
+        data[o] = r - cut
+        data[o + 2] = b - cut
+      }
     }
   }
   return img
@@ -230,32 +244,196 @@ async function buildToppings(counts) {
 
 // ------------------------------------------------------------------- box ---
 
-async function buildBox(flags) {
+/**
+ * Two frames: lid up, and lid shut.
+ *
+ * Not for want of trying to get the in-between ones. Two batches asked for the
+ * lid at a quarter, a third, a half and three quarters of the way down, and
+ * what came back was the same lid standing up, or leaning off to one side -
+ * from this camera a lid rotating about a hinge at the back mostly
+ * *foreshortens* rather than sweeping, and that is apparently a hard thing to
+ * ask for. So the in-between is computed instead: the renderer splits this
+ * frame at the hinge and squashes the lid towards it, which is exactly what
+ * the projection of a rotating lid does, and is controllable to the frame.
+ */
+const BOX_SEQUENCE = ['box-open', 'box-closed']
+
+/** Rows at the bottom of a box used to find the base, as a share of height. */
+const BASE_BAND = 0.16
+
+/** Where in the sprite to look for the lid/base boundary. */
+const HINGE_BAND = [0.3, 0.85]
+
+/** The row where the silhouette suddenly widens: the top of the base. */
+function findHinge({ data, width: w }, trim) {
+  const widths = []
+  for (let y = trim.top; y < trim.top + trim.height; y++) {
+    let x0 = w
+    let x1 = -1
+    for (let x = trim.left; x < trim.left + trim.width; x++) {
+      if (data[(y * w + x) * 4 + 3] < 40) continue
+      if (x < x0) x0 = x
+      if (x > x1) x1 = x
+    }
+    widths.push(x1 < 0 ? 0 : x1 - x0 + 1)
+  }
+  let bestRow = Math.round(widths.length * 0.62)
+  let bestJump = 0
+  const from = Math.round(widths.length * HINGE_BAND[0])
+  const to = Math.round(widths.length * HINGE_BAND[1])
+  for (let y = from; y < to - 1; y++) {
+    const jump = widths[y + 1] - widths[y]
+    if (jump > bestJump) {
+      bestJump = jump
+      bestRow = y + 1
+    }
+  }
+  return Number((bestRow / widths.length).toFixed(4))
+}
+
+/**
+ * Where a box's base sits: the horizontal centre of its bottom band.
+ *
+ * Not the centroid of the whole sprite, which is the thing that must NOT be
+ * used: an open lid leans back and drags the centroid with it, so registering
+ * on the centroid would slide the base sideways as the lid comes down - the
+ * exact motion the sequence exists to avoid. The bottom of the box is the part
+ * that stays still in life, so it is the part aligned here.
+ */
+function baseAnchor({ data, width: w }, trim) {
+  const from = trim.top + Math.round(trim.height * (1 - BASE_BAND))
+  let x0 = w
+  let x1 = -1
+  for (let y = from; y < trim.top + trim.height; y++) {
+    for (let x = trim.left; x < trim.left + trim.width; x++) {
+      if (data[(y * w + x) * 4 + 3] < 40) continue
+      if (x < x0) x0 = x
+      if (x > x1) x1 = x
+    }
+  }
+  if (x1 < 0) return { x: trim.left + trim.width / 2, base: 0 }
+  return { x: (x0 + x1) / 2, base: x1 - x0 + 1 }
+}
+
+/**
+ * Cuts the box sequence and registers every frame on its base.
+ *
+ * All frames come out the same size and symmetric about the base's centre, so
+ * the renderer can draw any of them into one rectangle and nothing but the lid
+ * moves between them.
+ */
+async function buildBox(box) {
   await mkdir(propOut, { recursive: true })
-  // Three states, not two. The second take of the closed box came back with
-  // the lid halfway down, which is worth more than another closed one: a lid
-  // that dissolves open -> half -> shut reads as a lid coming down, where a
-  // straight open -> shut reads as one box replacing another.
-  for (const which of ['open', 'mid', 'closed']) {
-    const src = await findSource(propsSrc, `box-${which}`)
+
+  const frames = []
+  for (const name of BOX_SEQUENCE) {
+    const src = await findSource(propsSrc, name)
     if (!src) {
-      console.log(`  box-${which}: not generated yet`)
+      console.log(`  ${name}: not generated yet`)
       continue
     }
     const img = key(await loadRGBA(src))
     const parts = components(img)
     if (!parts.length) {
-      console.warn(`  ! box-${which}: keyed to nothing`)
+      console.warn(`  ! ${name}: keyed to nothing`)
       continue
     }
     // The box is one object; anything else in frame is a stray the key left.
-    const dest = path.join(propOut, `box-${which}.webp`)
-    await sharp(img.data, { raw: { width: img.width, height: img.height, channels: 4 } })
-      .extract(parts[0].trim)
+    const trim = parts[0].trim
+    frames.push({ name, img, trim, anchor: baseAnchor(img, trim) })
+  }
+
+  if (!frames.length) return
+
+  // Where the lid meets the base, as a fraction of the sprite's height.
+  //
+  // Found from the width profile rather than guessed: the lid stands roughly
+  // straight up, so its width barely changes down its length, while the base
+  // widens steadily towards the camera. The boundary is the one row where the
+  // width jumps, and it is unmistakable - 508px to 550px from one row to the
+  // next on this art.
+  box.hinge = findHinge(frames[0].img, frames[0].trim)
+
+  // Every frame is scaled so its base comes out the same width.
+  //
+  // Registering the base's *position* is not enough on its own: these are
+  // separate photographs, and one that came back a few per cent larger makes
+  // the whole box jump size at that frame. The base is the one part that is
+  // the same object in every shot, so matching its width matches the scale.
+  // The first frame - the open box every other one was generated from - is
+  // what they are all matched to.
+  const refBase = frames[0].anchor.base || 1
+  for (const f of frames) {
+    f.k = f.anchor.base ? refBase / f.anchor.base : 1
+    f.w = Math.max(1, Math.round(f.trim.width * f.k))
+    f.h = Math.max(1, Math.round(f.trim.height * f.k))
+    f.ax = (f.anchor.x - f.trim.left) * f.k
+  }
+
+  // One canvas that fits every frame, with the base centre exactly in the
+  // middle of it - so the renderer centring the bitmap centres the base.
+  let half = 0
+  let tall = 0
+  for (const f of frames) {
+    half = Math.max(half, f.ax, f.w - f.ax)
+    tall = Math.max(tall, f.h)
+  }
+  const W = Math.ceil(half * 2)
+  const H = Math.ceil(tall)
+
+  let n = 0
+  for (const f of frames) {
+    let pipeline = sharp(f.img.data, {
+      raw: { width: f.img.width, height: f.img.height, channels: 4 },
+    }).extract(f.trim)
+    if (f.k !== 1) pipeline = pipeline.resize(f.w, f.h)
+    const piece = await pipeline.png().toBuffer()
+
+    const dest = path.join(propOut, `box-${String(++n).padStart(2, '0')}.webp`)
+    await sharp({
+      create: { width: W, height: H, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    })
+      .composite([{ input: piece, left: Math.round(W / 2 - f.ax), top: H - f.h }])
       .webp({ quality: 88, alphaQuality: 100 })
       .toFile(dest)
-    flags[which] = true
-    console.log(`  box-${which}: ${parts[0].trim.width}x${parts[0].trim.height}`)
+    console.log(
+      `  ${f.name.padEnd(12)} ${f.trim.width}x${f.trim.height}` +
+        `  base ${f.anchor.base}px  x${f.k.toFixed(3)} -> box-${String(n).padStart(2, '0')}`
+    )
+  }
+
+  box.frames = n
+  console.log(`  box: ${n} frame(s) registered into ${W}x${H}, hinge at ${box.hinge}`)
+}
+
+// ----------------------------------------------------------------- sides ---
+
+/** Tallest a side is stored at - twice the size it is ever drawn. */
+const SIDE_HEIGHT = 380
+
+async function buildSides(sides) {
+  await mkdir(propOut, { recursive: true })
+  for (const which of ['fries', 'cola']) {
+    const src = await findSource(propsSrc, `side-${which}`)
+    if (!src) {
+      console.log(`  side-${which}: not generated yet`)
+      continue
+    }
+    const img = key(await loadRGBA(src))
+    const parts = components(img)
+    if (!parts.length) {
+      console.warn(`  ! side-${which}: keyed to nothing`)
+      continue
+    }
+    const trim = parts[0].trim
+    const k = SIDE_HEIGHT / trim.height
+    await sharp(img.data, { raw: { width: img.width, height: img.height, channels: 4 } })
+      .extract(trim)
+      .resize(Math.max(1, Math.round(trim.width * k)), SIDE_HEIGHT)
+      .webp({ quality: 88, alphaQuality: 100 })
+      .toFile(path.join(propOut, `side-${which}.webp`))
+    sides[which] = true
+    console.log(`  side-${which}: ${trim.width}x${trim.height}`)
   }
 }
 
@@ -263,14 +441,18 @@ async function buildBox(flags) {
 
 const data = JSON.parse(await readFile(propData, 'utf8'))
 const counts = { ...data.toppings }
-const flags = { ...data.box }
+const box = { frames: 0, hinge: 0.62 }
+const sides = { fries: false, cola: false }
 
 console.log('toppings:')
 await buildToppings(counts)
 console.log('box:')
-await buildBox(flags)
+await buildBox(box)
+console.log('sides:')
+await buildSides(sides)
 
 data.toppings = counts
-data.box = flags
+data.box = box
+data.sides = sides
 await writeFile(propData, JSON.stringify(data, null, 2) + '\n', 'utf8')
 console.log('prop-data: updated')

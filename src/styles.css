@@ -76,8 +76,11 @@ button {
   --panel: 96px;
 }
 
+/* The order list scrolls inside itself, so this is a budget rather than a fit:
+   any taller and the checkout panel covers the counter the order is standing
+   on, which is the one thing it should not hide. */
 .hero[data-step='order'] {
-  --panel: min(44svh, 300px);
+  --panel: min(33svh, 240px);
 }
 
 /* The scene is the page. The dock floats over it rather than pushing it into a
@@ -553,6 +556,84 @@ button {
 /* The one element on the page with its own scrollbar. An order can be any
    length; shrinking the rows until they are unreadable, or hiding lines behind
    a "+2 more", are both worse than letting the list itself scroll. */
+/*
+ * The meal offer.
+ *
+ * Asked once, and answerable either way in one tap - a row with a No in it is
+ * an offer, the same row without one is an advert. It sits above the list
+ * rather than inside it because it is a question, not a line of the order.
+ */
+.upsell {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid rgba(244, 166, 42, 0.5);
+  border-radius: 11px;
+  background: rgba(244, 166, 42, 0.12);
+}
+
+.upsell__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.upsell__text strong {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.upsell__text span {
+  font-size: 10px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upsell__buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.upsell__no,
+.upsell__yes {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.upsell__no {
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+}
+
+.upsell__yes {
+  border: 0;
+  background: var(--amber);
+  color: #241a06;
+}
+
+.upsell__no:active,
+.upsell__yes:active {
+  transform: scale(0.96);
+}
+
 .order__list {
   flex: 1 1 auto;
   min-height: 0;

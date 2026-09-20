@@ -38,7 +38,13 @@ interface PlateData {
 interface PropData {
   fire: FireData
   plate: PlateData
-  box: { open: boolean; mid: boolean; closed: boolean }
+  /**
+   * The box: frame 0 has its lid up, the last has it shut, and `hinge` is
+   * where the lid meets the base as a fraction of the sprite's height.
+   */
+  box: { frames: number; hinge: number }
+  /** Whether the upsell props exist. */
+  sides: { fries: boolean; cola: boolean }
   /** Pieces cut from each topping sheet, keyed by extra id. */
   toppings: Record<string, number>
 }
@@ -47,17 +53,21 @@ const data = propData as PropData
 
 export const FIRE = data.fire
 export const PLATE_IMAGE = data.plate
-export const PROPS = { box: data.box, toppings: data.toppings }
+export const PROPS = { box: data.box, sides: data.sides, toppings: data.toppings }
 
 export const fireFrameUrls = () =>
   Array.from({ length: FIRE.frames }, (_, i) =>
     asset(`fire/flame-${String(i + 1).padStart(2, '0')}.webp`)
   )
 
-export const boxUrls = () => ({
-  open: data.box.open ? asset('props/box-open.webp') : null,
-  mid: data.box.mid ? asset('props/box-mid.webp') : null,
-  closed: data.box.closed ? asset('props/box-closed.webp') : null,
+export const boxFrameUrls = () =>
+  Array.from({ length: data.box.frames }, (_, i) =>
+    asset(`props/box-${String(i + 1).padStart(2, '0')}.webp`)
+  )
+
+export const sideUrls = () => ({
+  fries: data.sides?.fries ? asset('props/side-fries.webp') : null,
+  cola: data.sides?.cola ? asset('props/side-cola.webp') : null,
 })
 
 export const toppingUrls = (extra: string) =>

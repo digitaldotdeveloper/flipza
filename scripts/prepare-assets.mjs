@@ -31,19 +31,40 @@ const POSES = 9
 const SPRITE_QUALITY = 82
 
 /**
- * Largest the pizza's own diameter is allowed to be, in sprite pixels.
+ * Two sprite sets, and the pizza's own diameter in each, in sprite pixels.
  *
- * The pizza is drawn about 500 plate pixels across, and the plate is scaled to
- * the window - so on a 1080p screen a sprite is asked for at ~570px and on a
- * 4K one at ~1150px. The originals measure up to 1238px on their major axis,
- * which is resolution nobody has a display for, and the generated ones sit
- * between 574 and 880.
+ * The pizza is drawn about 500 plate pixels across and the plate is scaled to
+ * fill the window, so what a sprite is actually asked for is roughly
+ * 500 x 1.36 x (window / plate) - about 570px on a 1080p desktop and on a
+ * phone, and about 1500px on a 4K display. One set sized for the largest of
+ * those is most of a megabyte wasted on everyone else: at 960px the sprites
+ * come to 3.2MB, and nine screens in ten can only show half of it.
  *
- * Capping at 960 costs nothing below 4K, is a fraction of a pixel of softness
- * on 4K, and takes a third off the largest sprites - the ones that were
- * dominating the download.
+ * So `sprites/` is sized for a normal screen and `sprites-2x/` for a big or
+ * dense one, and the runtime picks (see scene.ts). Only one set is ever
+ * downloaded. sprite-data.json describes the standard one; the renderer scales
+ * the measurements by the bitmap it actually got, so the same numbers serve
+ * both.
  */
-const MAX_MAJOR = 960
+const SETS = [
+  { dir: 'sprites', maxMajor: 620, rest: 86, tumble: 62 },
+  { dir: 'sprites-2x', maxMajor: 980, rest: 84, tumble: 60 },
+]
+
+/**
+ * Pose 1 is encoded well and poses 2-9 are not, on purpose.
+ *
+ * They are not looked at for remotely similar lengths of time. Pose 1 is the
+ * pizza sitting on the peel - it is on screen while someone reads the menu,
+ * picks a size, adds toppings and checks out, which is minutes. Poses 2 to 9
+ * each appear for about seventy milliseconds, in the middle of a tumble, under
+ * motion blur that the renderer adds on top.
+ *
+ * They are also eight ninths of the bytes. Encoding the eight that flash past
+ * at the quality the one you stare at needs is most of a megabyte spent on
+ * frames nobody can see clearly anyway.
+ */
+const isResting = (name) => name === 'peel' || /-1$/.test(name)
 /** Alpha at or below this is treated as fully transparent when measuring. */
 const ALPHA_FLOOR = 24
 
@@ -405,6 +426,17 @@ function measureSprite({ data, width: W, height: H }) {
   const major = 4 * Math.sqrt((a + c + disc) / 2)
   const minor = 4 * Math.sqrt(Math.max(0, (a + c - disc) / 2))
 
+  // Which way that major axis points, in image coordinates (y down).
+  //
+  // This is what lets something be placed *on* the pizza rather than in front
+  // of it. A pizza is a flat disc, and a flat disc seen at an angle is an
+  // ellipse: given its centre, its two axes and the direction of the long one,
+  // any point on the disc can be projected onto the screen, and anything lying
+  // on the disc squashes by exactly minor/major along the short axis. Without
+  // the angle the other three numbers describe an ellipse that could be lying
+  // any way round.
+  const angle = 0.5 * Math.atan2(2 * b, a - c)
+
   const trim = { left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 }
   return {
     trim,
@@ -413,6 +445,7 @@ function measureSprite({ data, width: W, height: H }) {
     cy: cy - y0,
     major,
     minor,
+    angle,
   }
 }
 
@@ -467,7 +500,9 @@ async function buildSprites() {
     sources.push({ name, file: await requireSource(spriteSrc, name, root) })
   }
 
-  await mkdir(spriteOut, { recursive: true })
+  for (const set of SETS) {
+    await mkdir(path.join(root, 'public', set.dir), { recursive: true })
+  }
 
   const out = {}
   for (const { name, file } of sources) {
@@ -494,36 +529,48 @@ async function buildSprites() {
     bleedEdges(img)
 
     const m = measureSprite(img)
-    const dest = path.join(spriteOut, `${name}.webp`)
 
     // Every measurement is scaled with the sprite rather than re-measured
     // afterwards: the centroid and the axes are what the runtime places and
     // normalises by, and re-measuring a resampled alpha channel would move
     // them by a fraction of a pixel for no reason.
-    const shrink = m.major > MAX_MAJOR ? MAX_MAJOR / m.major : 1
-    const width = Math.max(1, Math.round(m.trim.width * shrink))
-    const height = Math.max(1, Math.round(m.trim.height * shrink))
+    for (const set of SETS) {
+      const shrink = m.major > set.maxMajor ? set.maxMajor / m.major : 1
+      const width = Math.max(1, Math.round(m.trim.width * shrink))
+      const height = Math.max(1, Math.round(m.trim.height * shrink))
 
-    let pipeline = sharp(img.data, {
-      raw: { width: img.width, height: img.height, channels: 4 },
-    }).extract(m.trim)
-    if (shrink < 1) pipeline = pipeline.resize(width, height)
-    await pipeline
-      .webp({ quality: SPRITE_QUALITY, alphaQuality: 100, smartSubsample: true })
-      .toFile(dest)
+      let pipeline = sharp(img.data, {
+        raw: { width: img.width, height: img.height, channels: 4 },
+      }).extract(m.trim)
+      if (shrink < 1) pipeline = pipeline.resize(width, height)
+      await pipeline
+        .webp({
+          quality: isResting(name) ? set.rest : set.tumble,
+          alphaQuality: 100,
+          smartSubsample: true,
+        })
+        .toFile(path.join(root, 'public', set.dir, `${name}.webp`))
 
-    out[name] = {
-      width,
-      height,
-      cx: Number((m.cx * shrink).toFixed(2)),
-      cy: Number((m.cy * shrink).toFixed(2)),
-      major: Number((m.major * shrink).toFixed(2)),
-      minor: Number((m.minor * shrink).toFixed(2)),
+      // The standard set is the one sprite-data.json describes.
+      if (set === SETS[0]) {
+        out[name] = {
+          width,
+          height,
+          cx: Number((m.cx * shrink).toFixed(2)),
+          cy: Number((m.cy * shrink).toFixed(2)),
+          major: Number((m.major * shrink).toFixed(2)),
+          minor: Number((m.minor * shrink).toFixed(2)),
+          // Scale-free, so it survives the resolution cap untouched.
+          angle: Number(m.angle.toFixed(4)),
+        }
+      }
     }
+    const built = out[name]
     console.log(
-      `  ${name.padEnd(20)} ${String(m.trim.width).padStart(4)}x${String(m.trim.height).padStart(4)}` +
+      `  ${name.padEnd(20)} ${String(built.width).padStart(4)}x${String(built.height).padStart(4)}` +
         `  centroid ${m.cx.toFixed(0).padStart(4)},${m.cy.toFixed(0).padStart(4)}` +
         `  axes ${m.major.toFixed(0)}x${m.minor.toFixed(0)}` +
+        `  at ${((m.angle * 180) / Math.PI).toFixed(0).padStart(4)}deg` +
         note
     )
   }

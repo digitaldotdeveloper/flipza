@@ -4,6 +4,8 @@
  *
  *   node scripts/gen-props.mjs toppings      # the four extras, as sheets
  *   node scripts/gen-props.mjs box           # an open Flipza box
+ *   node scripts/gen-props.mjs lid           # the lid closing, five frames
+ *   node scripts/gen-props.mjs sides         # fries and a cola, for the upsell
  *   node scripts/gen-props.mjs box-closed    # the same box with its lid down
  *
  * Writes into props-src/. Sources are only ever read.
@@ -90,6 +92,59 @@ const boxOpenPrompt = [
   background,
 ].join('\n')
 
+/**
+ * The lid closing, as a sequence.
+ *
+ * A cross-dissolve between an open box and a closed one does not read as a lid
+ * coming down - it reads as one box being replaced by another, because every
+ * pixel in the frame changes at once including the ones that should not move.
+ * Frames of the same box with the lid at decreasing angles read as a lid,
+ * because the base stays exactly where it is and only the lid travels.
+ *
+ * Every frame is generated from the *open* box rather than from the frame
+ * before it: a chain re-renders a re-render and drifts, where a fan anchored
+ * to one reference keeps them all the same box - the same reason the flames
+ * are generated from a seed.
+ */
+const LID = [
+  'the lid has only just begun to fall - it still stands almost upright behind the base and leans forward a little',
+  'the lid leans well forward, at roughly sixty degrees up from the base',
+  'the lid is halfway, at roughly forty-five degrees up from the base',
+  'the lid is most of the way down, at roughly twenty-five degrees up from the base',
+  'the lid is a few degrees from shut and about to touch the base',
+]
+
+const lidPrompt = (how) =>
+  [
+    'This is a photograph of an open pizza box with its lid standing up behind',
+    'the base.',
+    '',
+    `Show the SAME box from the identical camera angle, at the moment ${how}.`,
+    '',
+    'The lid is hinged along the back edge of the base. That hinge runs straight',
+    'across the picture from left to right, parallel to the bottom of the frame,',
+    'and the lid swings down towards the camera about it - like the lid of a',
+    'laptop closing.',
+    '',
+    'So, as the lid comes down, what changes in the picture is ONLY this: the lid',
+    'gets shorter from top to bottom, and its outside face is seen at more and',
+    'more of an angle, until at the end it is nearly edge-on. The lid must stay',
+    'exactly as wide as it is now, its left and right edges must stay where they',
+    'are, and it must NOT tilt, lean or twist to the left or to the right. It is',
+    'square to the camera now and it stays square to the camera.',
+    '',
+    'The base of the box does not move at all - identical position in the frame,',
+    'identical size, identical shape, identical cardboard, identical shadow.',
+    '',
+    'The logo stays printed on the outside of the lid and squashes with it as the',
+    'lid tips away, staying centred and the right way up. Reproduce the logo',
+    'exactly as it is - do not redraw or restyle it.',
+    '',
+    'Identical lighting from the identical direction. Nothing else changes.',
+    '',
+    background,
+  ].join('\n')
+
 const boxClosedPrompt = [
   'This is a photograph of an open pizza box.',
   '',
@@ -103,6 +158,55 @@ const boxClosedPrompt = [
   '',
   background,
 ].join('\n')
+
+// ----------------------------------------------------------------- sides ---
+
+/**
+ * The upsell, as objects that can stand on the counter next to the boxes.
+ *
+ * Shot at the same eye level as the box for the same reason every pose is
+ * rendered through the same nine rotations: things that share a scene have to
+ * share a camera, or they read as stickers laid over a photograph.
+ */
+const SIDES = {
+  fries: [
+    'A tall carton of golden french fries, full, with the fries standing up out',
+    'of it and one or two leaning over the rim. The carton is red and white card',
+    'and stands upright on its flat base.',
+    '',
+    'The logo on the attached image is printed on the front of the carton, facing',
+    'the camera. Reproduce it exactly as it is - the same wordmark, the same',
+    'lettering, the same colours - and do not add any other text.',
+  ],
+  cola: [
+    'A tall paper cup of cola with a domed plastic lid and a straw standing in',
+    'it, beaded with condensation, standing upright on its base.',
+    '',
+    'The logo on the attached image is printed on the front of the cup, facing',
+    'the camera. Reproduce it exactly as it is - the same wordmark, the same',
+    'lettering, the same colours - and do not add any other text.',
+  ],
+}
+
+const sidePrompt = (lines) =>
+  [
+    'A photograph of the following, standing on a counter:',
+    '',
+    ...lines,
+    '',
+    'Seen from the front at a slight downward angle, about twenty degrees above',
+    'the level of the counter - the same eye level as someone standing at a pizza',
+    'counter looking down at it. Warm indoor lighting from the front, the way a',
+    'lit pizza counter lights what is on it.',
+    '',
+    'Sharp and fully in focus, large in the frame, standing upright and level.',
+    '',
+    'It is lit ONLY by that warm indoor light. The colour of the background must',
+    'not tint it anywhere: white card stays pure white, and nothing in the frame',
+    'picks up any pink, magenta or purple at all.',
+    '',
+    background,
+  ].join('\n')
 
 // ------------------------------------------------------------------ main ---
 
@@ -136,12 +240,46 @@ if (what === 'toppings') {
   const attach = [await upload(logoFile)]
   console.log('props: box (open) x3')
   await runBatch([{ name: 'box-open', prompt: boxOpenPrompt, attach, runs: 3 }], dest)
+} else if (what === 'lid') {
+  // `node scripts/gen-props.mjs lid 1 2` redoes only those frames, which is
+  // what a batch with one failure in it needs.
+  const only = process.argv.slice(3).map(Number).filter(Boolean)
+  const ref = await requireSource(propsSrc, 'box-open', root)
+  const attach = [await upload(ref)]
+  const wanted = LID.map((how, i) => ({ how, n: i + 1 })).filter(
+    ({ n }) => !only.length || only.includes(n)
+  )
+  console.log(`props: ${wanted.length} lid frame(s), from ${path.relative(root, ref)}`)
+  await runBatch(
+    wanted.map(({ how, n }) => ({
+      name: `box-lid-${n}`,
+      prompt: lidPrompt(how),
+      attach,
+      runs: 1,
+    })),
+    dest
+  )
+} else if (what === 'sides') {
+  const logoFile = path.join(propsSrc, '_logo.png')
+  const brand = await requireSource(root, 'logo', root)
+  await sharp(brand).extract(LOGO_CROP).png().toFile(logoFile)
+  const attach = [await upload(logoFile)]
+  console.log(`props: ${Object.keys(SIDES).length} side(s) x2`)
+  await runBatch(
+    Object.entries(SIDES).map(([id, lines]) => ({
+      name: `side-${id}`,
+      prompt: sidePrompt(lines),
+      attach,
+      runs: 2,
+    })),
+    dest
+  )
 } else if (what === 'box-closed') {
   const ref = process.argv[3] || (await requireSource(propsSrc, 'box-open', root))
   const attach = [await upload(ref)]
   console.log(`props: box (closed) x2, from ${path.relative(root, ref)}`)
   await runBatch([{ name: 'box-closed', prompt: boxClosedPrompt, attach, runs: 2 }], dest)
 } else {
-  console.error('Usage: node scripts/gen-props.mjs <toppings|box|box-closed [ref.png]>')
+  console.error('Usage: node scripts/gen-props.mjs <toppings|box|lid|sides|box-closed [ref]>')
   process.exit(1)
 }

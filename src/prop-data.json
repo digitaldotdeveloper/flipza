@@ -27,9 +27,8 @@
     ]
   },
   "box": {
-    "open": true,
-    "mid": true,
-    "closed": true
+    "frames": 2,
+    "hinge": 0.6378
   },
   "toppings": {
     "olives": 13,
@@ -42,5 +41,9 @@
     "height": 2021,
     "left": 0,
     "top": 560
+  },
+  "sides": {
+    "fries": true,
+    "cola": true
   }
 }

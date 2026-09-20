@@ -12,15 +12,15 @@
  *   plate      the kitchen, with a flameless oven (see prepare-oven.mjs)
  *   fire       keyed flame frames, composited additively into the oven mouth
  *   spill      the light that fire throws into the room, tied to its brightness
+ *   stack      boxes already ordered, and the sides, waiting further back
  *   peel       the tool, which flicks as the pizza leaves and returns
- *   box base   slides in along the counter when an order is added
  *   shadow     drawn after the peel because at rest it falls *on* the blade
  *   pizza      motion-blurred along its own travel vector
- *   toppings   extras raining down and melting in
- *   box lid    drawn over the pizza, which is what closing a lid looks like
+ *   toppings   the extras, lying in the pizza's own plane
+ *   box        the one being filled, nearest the camera of anything
  */
 import { PEEL_BLADE, PIZZA_DIAMETER, REST, flavorAt, poseAt, posesFor } from '../scene'
-import type { Flavor, Plan, SpriteMeta } from '../scene'
+import type { Flavor, Plan } from '../scene'
 import { FIRE, PLATE_IMAGE, PROPS } from '../props'
 
 /** Everything the renderer needs decoded before it can draw a frame. */
@@ -31,10 +31,15 @@ export interface SceneAssets {
   poses: Record<Flavor, ImageBitmap[]>
   /** Flame frames, all the same size, base-aligned. Empty until they arrive. */
   flames: ImageBitmap[]
-  /** The box in three states: lid up, lid halfway, lid shut. */
-  boxOpen?: ImageBitmap
-  boxMid?: ImageBitmap
-  boxClosed?: ImageBitmap
+  /**
+   * The box closing, in order: lid up through to lid shut. All the same size
+   * with the base registered to the same spot, so playing them moves nothing
+   * but the lid.
+   */
+  boxFrames: ImageBitmap[]
+  /** The upsell, standing on the counter beside the stack. */
+  fries?: ImageBitmap
+  cola?: ImageBitmap
   /** Individual pieces per extra, cut from one sheet each. */
   toppings: Record<string, ImageBitmap[]>
 }
@@ -48,10 +53,16 @@ export interface SceneState {
   p: number
   /** Pizza size multiplier - the chosen size, tweened. */
   size: number
-  /** 0 the box is off-stage right, 1 it is centred on the counter. */
+  /** 0 the box is off-stage right, 1 it is on the counter under the pizza. */
   boxIn: number
-  /** 0 lid open, 1 lid shut. Cross-dissolves open -> closed. */
+  /** 0 lid up, 1 lid shut. Picks a frame; it does not cross-fade. */
   lid: number
+  /** 0 the filled box is on the counter, 1 it has joined the stack behind. */
+  boxAway: number
+  /** Boxes already in the stack. Set directly, never tweened. */
+  stack: number
+  /** 0..1 the fries and the cola arriving beside the stack. */
+  sides: number
   /** 0 the peel is under the pizza, 1 it has been pulled out of frame. */
   peelOut: number
   /** 1 hides the pizza - used while a shut lid is covering it anyway. */
@@ -65,6 +76,9 @@ export const initialState = (): SceneState => ({
   size: 1,
   boxIn: 0,
   lid: 0,
+  boxAway: 0,
+  stack: 0,
+  sides: 0,
   peelOut: 0,
   pizzaOut: 0,
   flash: 0,
@@ -81,7 +95,7 @@ const PEEL_WIDTH_RATIO = 1.04
 const PEEL_DROP = 18
 
 /**
- * Where the box sits when it is centred on the counter, in plate pixels.
+ * Where the box sits while it is being filled, in plate pixels.
  *
  * `width` is the base, and it is only a little wider than the 500px pizza -
  * which is what a box is. Wider than that and the pizza drops into something
@@ -90,11 +104,40 @@ const PEEL_DROP = 18
 const BOX = { x: REST.x, y: REST.y + 104, width: 545, offRight: 1200 }
 
 /**
+ * Where finished boxes wait: the back of the counter, behind the glass.
+ *
+ * Smaller and higher in the frame than the box being filled, which is what
+ * "further away on the same surface" looks like from this camera. They stay
+ * there for the rest of the order, so what has been bought is on screen while
+ * it is being paid for rather than only in a list.
+ *
+ * As far back as it is because of the phone. The order step opens the tallest
+ * dock of the four, and anything on the near edge of the counter ends up
+ * behind it - so the pile stands where a pile of finished boxes would stand
+ * anyway, at the back, which is also the only part of the counter a phone can
+ * still see at checkout.
+ */
+const STACK = { x: 1150, y: 566, width: 216, step: 31 }
+
+/**
+ * The fries and the cola, standing beside the stack.
+ *
+ * Everything here is kept inside x 930..1270, which is what a phone can see:
+ * the visible window on a 390px screen runs from about 370 to 1300 in plate
+ * pixels, and the pizza itself takes 590 to 1090 of it. This is the only
+ * strip of counter left.
+ */
+const SIDES = {
+  fries: { x: 968, y: 572, height: 124 },
+  cola: { x: 1044, y: 576, height: 110 },
+}
+
+/**
  * How fast the fire runs, in frames per second.
  *
- * Twelve, not sixty: the frames are separate renders of the same fire, and
- * played faster than the eye can resolve one from the next they stop reading as
- * one fire moving and start reading as noise. Consecutive frames are
+ * Eleven, not sixty: the frames are separate renders of the same fire, and
+ * played faster than the eye can resolve one from the next they stop reading
+ * as one fire moving and start reading as noise. Consecutive frames are
  * cross-faded, so the motion between them stays continuous at this rate.
  */
 const FIRE_FPS = 11
@@ -109,6 +152,16 @@ const FOCUS = { y: 470, at: 0.5 }
 const LIFT_MAX = 90
 
 /**
+ * How far the pile and the sides slide right on a wide screen.
+ *
+ * A phone can only see the middle 930 plate pixels, so the pile has to stand
+ * close in - which on a wide screen puts it in front of the oven mouth, over
+ * the fire. There is a clear stretch of counter further right that only a wide
+ * window can see, so on a wide window that is where it goes.
+ */
+const STAGING_SHIFT = 150
+
+/**
  * Topping pieces are stored at twice the size they are drawn.
  *
  * prepare-props.mjs cuts them at 2x on purpose - the plate is scaled up to
@@ -118,6 +171,10 @@ const LIFT_MAX = 90
  * come out the size of doughnuts.
  */
 const PIECE_SCALE = 0.5
+
+/** Seconds a topping takes to fall, and how long its landing squash lasts. */
+const FALL = 0.46
+const SETTLE = 0.22
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
 /** 1 below `a`, 0 above `b`, smooth between - `a` may be the larger. */
@@ -134,11 +191,13 @@ export class SceneRenderer {
   private prev: { x: number; y: number } | null = null
   /** False while the frame on screen still carries motion blur. */
   settled = false
-  private drops: Drop[] = []
+  private pieces: Piece[] = []
   /** Smoothed fire brightness, 0..1 - drives the light spill. */
   private glow = 0.5
   /** Plate pixels the actors are raised by, to clear the dock on a phone. */
   private lift = 0
+  /** Plate pixels the pile and the sides move right on a wide screen. */
+  private staging = 0
   private poseMeta: Record<Flavor, ReturnType<typeof posesFor>> = {}
 
   constructor(
@@ -167,10 +226,9 @@ export class SceneRenderer {
    * Which part of a too-tall plate to keep is decided by aiming one scene point
    * at one screen fraction - FOCUS - and then clamping so the bitmap never
    * pulls away from an edge. In landscape that lands the original kitchen
-   * almost exactly in a 16:9 window, which is the framing it was rendered for.
-   * In portrait there is nothing left to choose: the plate is exactly as tall
-   * as it needs to be, the clamp takes over, and the whole picture is on
-   * screen.
+   * almost exactly in a 16:9 window. In portrait there is nothing left to
+   * choose: the plate is exactly as tall as it needs to be, the clamp takes
+   * over, and the whole picture is on screen.
    */
   resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -198,8 +256,52 @@ export class SceneRenderer {
     // counter is what someone holding a peel looks like, so nothing about the
     // scene stops making sense.
     const aspect = w / h
-    this.lift = LIFT_MAX * smoothstep(0.95, 0.55, aspect)
+    const narrow = smoothstep(0.95, 0.55, aspect)
+    this.lift = LIFT_MAX * narrow
+    this.staging = STAGING_SHIFT * (1 - narrow)
     this.prev = null
+  }
+
+  /**
+   * Scatters one extra's pieces onto the pizza.
+   *
+   * Positions are chosen in the pizza's **own** coordinates - a unit disc,
+   * which is what a pizza is - not in screen pixels. Where that lands on screen
+   * is worked out afresh every frame from whichever pose the pizza is in, so a
+   * topping stays on the pizza through a toss instead of hanging in the air
+   * where the pizza used to be.
+   */
+  rain(extra: string, count = 11) {
+    const set = this.assets.toppings[extra]
+    if (!set?.length) return
+    for (let i = 0; i < count; i++) {
+      // Sampled by area, not by radius: a uniform radius bunches every topping
+      // in the middle. 0.78 keeps them off the crust.
+      const a = Math.random() * Math.PI * 2
+      const r = Math.sqrt(Math.random()) * 0.78
+      this.pieces.push({
+        extra,
+        bmp: set[(Math.random() * set.length) | 0],
+        u: Math.cos(a) * r,
+        v: Math.sin(a) * r,
+        // Staggered so they arrive as a scatter rather than as one curtain.
+        delay: Math.random() * 0.38,
+        spin: (Math.random() - 0.5) * 2.4,
+        rot: Math.random() * Math.PI * 2,
+        scale: 0.82 + Math.random() * 0.36,
+        t: 0,
+      })
+    }
+  }
+
+  /** Takes one extra's pieces off again, for an extra that was un-chosen. */
+  unrain(extra: string) {
+    this.pieces = this.pieces.filter((p) => p.extra !== extra)
+  }
+
+  /** Everything added to this pizza is gone; the next one starts bare. */
+  clearToppings() {
+    this.pieces.length = 0
   }
 
   /** Canvas pixels per plate pixel - for placing DOM over scene features. */
@@ -214,39 +316,6 @@ export class SceneRenderer {
       x: (this.view.ox + x * this.view.k) / dpr,
       y: (this.view.oy + y * this.view.k) / dpr,
     }
-  }
-
-  /** Spawns a fall of one extra's pieces onto the pizza. */
-  rain(extra: string, count = 11) {
-    const pieces = this.assets.toppings[extra]
-    if (!pieces?.length) return
-    for (let i = 0; i < count; i++) {
-      // Landing spots are spread over the pizza face by area, not by radius -
-      // sampling the radius uniformly would bunch every topping in the middle.
-      const a = Math.random() * Math.PI * 2
-      const r = Math.sqrt(Math.random()) * PIZZA_DIAMETER * 0.4
-      const bmp = pieces[(Math.random() * pieces.length) | 0]
-      this.drops.push({
-        bmp,
-        tx: Math.cos(a) * r,
-        ty: Math.sin(a) * r * 0.42,
-        // Staggered so they arrive as a scatter rather than as one curtain.
-        delay: Math.random() * 0.38,
-        fall: 0,
-        spin: (Math.random() - 0.5) * 2.4,
-        rot: Math.random() * Math.PI * 2,
-        scale: 0.82 + Math.random() * 0.36,
-        t: 0,
-      })
-    }
-  }
-
-  get raining() {
-    return this.drops.length > 0
-  }
-
-  clearRain() {
-    this.drops.length = 0
   }
 
   /**
@@ -282,16 +351,26 @@ export class SceneRenderer {
     // below is an actor standing in front of it, and rises together.
     this.drawFire(time)
 
+    // What has already been ordered, waiting further back down the counter.
+    //
+    // Outside the lift: the lift exists to raise the pizza clear of the dock on
+    // a phone, and these are already well above it. Lifting them too would take
+    // them off the counter and leave them floating in front of the oven.
+    this.drawStack(s)
+    this.drawSides(s)
+
     ctx.save()
     ctx.translate(0, -this.lift)
-    this.drawBox(s, 'base')
+
     this.drawPeel(s, pose, diameter)
     if (s.pizzaOut < 1) {
       this.drawShadow(pose, diameter, s)
       this.drawPizza(pose, flavor, bitmaps, diameter)
-      this.drawDrops(dt, pose, diameter)
+      this.drawToppings(dt, pose, flavor, diameter)
     }
-    this.drawBox(s, 'lid')
+    // The box being filled is nearest the camera, so it is drawn over
+    // everything - and over the pizza, which is what a lid coming down is.
+    this.drawBox(s)
     ctx.restore()
 
     this.drawFlash(s)
@@ -385,7 +464,14 @@ export class SceneRenderer {
     const { ctx } = this
     const rx = (diameter / PIZZA_DIAMETER) * pose.shadow.rx
     const ry = (diameter / PIZZA_DIAMETER) * pose.shadow.ry
-    const g = ctx.createRadialGradient(pose.shadow.x, pose.shadow.y, 0, pose.shadow.x, pose.shadow.y, 1)
+    const g = ctx.createRadialGradient(
+      pose.shadow.x,
+      pose.shadow.y,
+      0,
+      pose.shadow.x,
+      pose.shadow.y,
+      1
+    )
     g.addColorStop(0, `rgba(0,0,0,${a})`)
     g.addColorStop(0.55, `rgba(0,0,0,${a * 0.62})`)
     g.addColorStop(1, 'rgba(0,0,0,0)')
@@ -419,7 +505,12 @@ export class SceneRenderer {
     const index = bitmaps[pose.index] ? pose.index : 0
     const meta = this.meta(flavor)[index].meta
     const bmp = bitmaps[index]
-    const spriteScale = (diameter * pose.scale) / meta.major
+    // The bitmap is from whichever sprite set this screen was given, and the
+    // measurements in sprite-data.json describe the standard one - so they are
+    // scaled by what actually arrived. Everything else the renderer reads off
+    // the metadata is either a ratio or an angle, and neither has a size.
+    const ms = bmp.width / meta.width
+    const spriteScale = (diameter * pose.scale) / (meta.major * ms)
 
     ctx.save()
     ctx.translate(pose.x, pose.y)
@@ -433,125 +524,252 @@ export class SceneRenderer {
     for (let i = 0; i < stamps; i++) {
       const o = stamps === 1 ? 0 : i / (stamps - 1) - 0.5
       ctx.globalAlpha = 1 / (i + 1)
-      this.stamp(bmp, meta, pose.x - vx * o, pose.y - vy * o, spriteScale)
+      this.stamp(bmp, meta.cx * ms, meta.cy * ms, pose.x - vx * o, pose.y - vy * o, spriteScale)
     }
     ctx.restore()
     ctx.globalAlpha = 1
     this.prev = { x: pose.x, y: pose.y }
   }
 
-  private stamp(bmp: ImageBitmap, m: SpriteMeta, x: number, y: number, scale: number) {
-    this.ctx.drawImage(
-      bmp,
-      x - m.cx * scale,
-      y - m.cy * scale,
-      bmp.width * scale,
-      bmp.height * scale
-    )
+  private stamp(bmp: ImageBitmap, cx: number, cy: number, x: number, y: number, scale: number) {
+    this.ctx.drawImage(bmp, x - cx * scale, y - cy * scale, bmp.width * scale, bmp.height * scale)
   }
 
   /**
-   * Toppings falling onto the pizza.
+   * The extras, lying on the pizza.
    *
-   * They land, settle, and melt in rather than staying put. Staying would mean
-   * carrying them through the tumble, and a topping pinned to a pizza that is
-   * rotating in three dimensions has to rotate with it - the poses are
-   * photographs, not a model, so there is no axis to rotate about. Melting in
-   * is also what actually happens to a topping dropped on a hot pizza.
+   * They stay. An earlier version faded them out a moment after they landed,
+   * on the theory that they had melted in - which looked fine and was exactly
+   * wrong, because the reason to watch a topping land is to see it on the pizza
+   * you are about to buy, and again at checkout.
+   *
+   * Keeping them means projecting them properly. A pizza is a flat disc, and a
+   * flat disc seen at an angle is an ellipse - and prepare-assets measures that
+   * ellipse for every pose: both axes, and the direction of the long one. So a
+   * topping is stored at a position on a unit disc, and each frame that
+   * position is mapped onto whichever ellipse the pizza is currently showing.
+   * The piece is squashed by the same minor/major it would be if it were lying
+   * on that surface, which is what makes it read as *on* the pizza rather than
+   * in front of it: near the top of the toss, where the pizza is nearly
+   * edge-on, its toppings are nearly edge-on too.
    */
-  private drawDrops(dt: number, pose: ReturnType<typeof poseAt>, diameter: number) {
-    if (!this.drops.length) return
+  private drawToppings(
+    dt: number,
+    pose: ReturnType<typeof poseAt>,
+    flavor: Flavor,
+    diameter: number
+  ) {
+    if (!this.pieces.length) return
     const { ctx } = this
-    const k = diameter / PIZZA_DIAMETER
 
-    for (const d of this.drops) {
-      d.t += dt
-      const t = d.t - d.delay
+    const index = this.assets.poses[flavor]?.[pose.index] ? pose.index : 0
+    const meta = this.meta(flavor)[index].meta
+    const shown = diameter * pose.scale
+    const rx = shown / 2
+    // How flat the pizza is lying, from the camera's point of view.
+    const squash = meta.minor / meta.major
+    const ry = rx * squash
+    const cos = Math.cos(meta.angle)
+    const sin = Math.sin(meta.angle)
+    const size = (shown / PIZZA_DIAMETER) * PIECE_SCALE
+
+    ctx.save()
+    ctx.translate(pose.x, pose.y)
+    ctx.scale(1, pose.squash)
+    ctx.translate(-pose.x, -pose.y)
+
+    for (const piece of this.pieces) {
+      piece.t += dt
+      const t = piece.t - piece.delay
       if (t < 0) continue
 
-      // 0 -> 1 fall, then a short settle, then melt away.
-      const FALL = 0.46
-      const HOLD = 0.5
-      const MELT = 0.55
-      d.fall = Math.min(1, t / FALL)
-      const landed = d.fall >= 1
+      // Where on the pizza it belongs, wherever the pizza currently is.
+      const ex = piece.u * rx
+      const ey = piece.v * ry
+      const x = pose.x + ex * cos - ey * sin
+      const y = pose.y + ex * sin + ey * cos
 
-      const ease = 1 - (1 - d.fall) * (1 - d.fall) // gravity-ish
-      const x = pose.x + d.tx * k
-      const y = pose.y + d.ty * k - (1 - ease) * 520
-      const settle = landed ? Math.max(0, 1 - (t - FALL) / 0.22) : 0
-      const melt = landed ? Math.max(0, (t - FALL - HOLD) / MELT) : 0
-      if (melt >= 1) continue
+      const falling = t < FALL
+      // Gravity on the way down, then a squash on impact that settles out.
+      const fall = falling ? 1 - (1 - t / FALL) * (1 - t / FALL) : 1
+      const drop = falling ? (1 - fall) * 520 : 0
+      const settle = Math.max(0, 1 - Math.max(0, t - FALL) / SETTLE)
 
       ctx.save()
-      ctx.globalAlpha = 1 - melt
-      ctx.translate(x, y)
-      // Spin while falling, then stop dead on landing - a piece that keeps
-      // turning after it has landed reads as sliding on ice.
-      ctx.rotate(d.rot + d.spin * (1 - ease))
-      // A squash on impact and a slight spread as it melts in.
-      const sc = k * PIECE_SCALE * d.scale * (1 + 0.16 * melt)
-      ctx.scale(sc, sc * (1 - 0.3 * settle))
-      ctx.drawImage(d.bmp, -d.bmp.width / 2, -d.bmp.height / 2)
+      ctx.translate(x, y - drop)
+      ctx.rotate(meta.angle)
+      // Foreshorten first, then turn the piece within the pizza's own plane: a
+      // topping lying on a tilted disc is squashed by the tilt, not by its own
+      // rotation.
+      ctx.scale(1, squash)
+      // Still spinning while it falls, stopped dead once it lands - a piece
+      // that keeps turning after it has landed reads as sliding on ice.
+      ctx.rotate(piece.rot + piece.spin * (1 - fall))
+      const s = size * piece.scale
+      ctx.scale(s * (1 + 0.14 * settle), s * (1 - 0.24 * settle))
+      ctx.drawImage(piece.bmp, -piece.bmp.width / 2, -piece.bmp.height / 2)
       ctx.restore()
     }
 
-    // Reaping after drawing rather than during keeps the array stable while it
-    // is being walked.
-    this.drops = this.drops.filter((d) => d.t - d.delay < 0.46 + 0.5 + 0.55)
+    ctx.restore()
   }
 
   /**
-   * The box, in two passes: its base behind the pizza, its closed form over it.
+   * The box being filled, and its lid coming down.
    *
-   * Closing a lid over a pizza is exactly a cross-fade from the open box to the
-   * closed one drawn *after* the pizza - as the closed box fades up it covers
-   * the pizza, which is what a lid coming down does. No lid sprite has to
-   * rotate, and the two boxes are the same box photographed twice, so nothing
-   * shifts underneath the dissolve.
+   * The lid is not a set of photographs. Two batches were generated of the same
+   * box with its lid at a quarter, a third, a half and three quarters down, and
+   * what came back each time was the lid still standing up or leaning off to
+   * one side - from this camera a lid rotating about a hinge at the back mostly
+   * foreshortens rather than sweeping, and that turns out to be a hard thing to
+   * ask a generator for.
+   *
+   * So the in-between is computed. The open box is cut in two at the hinge -
+   * measured off the art by prepare-props, where the silhouette stops being lid
+   * and starts being base - the base is drawn where it always is, and the lid is
+   * drawn above it squashed towards the hinge by `cos`. That is exactly what the
+   * projection of a rotating lid does, and unlike a generated frame it can be
+   * put at any angle at any moment.
+   *
+   * The shut box then fades in over the last of the fall. It has to: a lid
+   * squashed to nothing is a line across the back of the box, where a shut box
+   * is a lid lying over the whole base. Both carry the same logo, so the blend
+   * reads as the lid arriving rather than as a dissolve.
+   *
+   * Once shut, the box travels back along the counter to the stack - shrinking
+   * as it goes, because that is what moving away from a camera does - and
+   * `boxAway` is that journey.
    */
-  private drawBox(s: SceneState, pass: 'base' | 'lid') {
-    const { boxOpen, boxMid, boxClosed } = this.assets
-    if (!boxOpen || s.boxIn <= 0.001) return
+  private drawBox(s: SceneState) {
+    const frames = this.assets.boxFrames
+    if (!frames.length || s.boxIn <= 0.001) return
     const { ctx } = this
 
     // Slides in from off-stage right, decelerating.
-    const ease = 1 - Math.pow(1 - Math.min(1, s.boxIn), 3)
-    const x = BOX.x + BOX.offRight * (1 - ease)
-    const arriving = Math.min(1, s.boxIn * 3)
+    const arrive = 1 - Math.pow(1 - Math.min(1, s.boxIn), 3)
+    const fromX = BOX.x + BOX.offRight * (1 - arrive)
 
-    /** Every state is the same width and stands on the same line. */
-    const place = (bmp: ImageBitmap, alpha: number) => {
-      if (alpha <= 0.002) return
-      const k = BOX.width / bmp.width
-      ctx.globalAlpha = arriving * alpha
-      ctx.drawImage(bmp, x - (bmp.width * k) / 2, BOX.y - bmp.height * k, bmp.width * k, bmp.height * k)
-    }
+    // ...then away to the stack, where it is smaller and higher in the frame.
+    const away = s.boxAway
+    const slot = this.stackSlot(s.stack)
+    const x = fromX + (slot.x - fromX) * away
+    const y = BOX.y + (slot.y - BOX.y) * away
+    const width = BOX.width + (STACK.width - BOX.width) * away
+
+    const open = frames[0]
+    const shut = frames[frames.length - 1]
+    const k = width / open.width
+    const left = x - (open.width * k) / 2
+    const top = y - open.height * k
+    // Both frames share one canvas with the base registered, so one hinge and
+    // one scale serve both.
+    const hinge = Math.round(PROPS.box.hinge * open.height)
+    const hingeY = top + hinge * k
+
+    const arriving = Math.min(1, s.boxIn * 3)
+    const shutIn = smoothstep(0.55, 1, s.lid)
 
     ctx.save()
-    if (pass === 'base') {
-      // The open box, fading out as the lid comes down over it.
-      place(boxOpen, 1)
-    } else {
-      // The lid closing, over the pizza - which is what shutting a lid does.
-      //
-      // Three photographs of the same box rather than two: the second take of
-      // the closed box came back with the lid halfway down, and a dissolve
-      // that passes through it reads as a lid falling. Straight from open to
-      // shut reads as one box being swapped for another.
-      const mid = boxMid ?? boxClosed
-      if (s.lid <= 0) {
-        // nothing over the pizza yet
-      } else if (mid && s.lid < 0.5) {
-        place(mid, s.lid * 2)
-      } else if (mid && boxClosed) {
-        place(mid, Math.max(0, 1 - (s.lid - 0.5) * 2))
-        place(boxClosed, (s.lid - 0.5) * 2)
-      } else if (boxClosed) {
-        place(boxClosed, s.lid)
-      }
+
+    // The base: the part below the hinge, which never moves.
+    ctx.globalAlpha = arriving
+    ctx.drawImage(
+      open,
+      0,
+      hinge,
+      open.width,
+      open.height - hinge,
+      left,
+      hingeY,
+      open.width * k,
+      (open.height - hinge) * k
+    )
+
+    // The lid: the part above it, falling.
+    const fall = Math.cos(Math.min(1, s.lid) * (Math.PI / 2))
+    const lidHeight = hinge * k * fall
+    if (lidHeight > 0.5 && shutIn < 1) {
+      ctx.globalAlpha = arriving * (1 - shutIn)
+      ctx.drawImage(
+        open,
+        0,
+        0,
+        open.width,
+        hinge,
+        left,
+        hingeY - lidHeight,
+        open.width * k,
+        lidHeight
+      )
     }
+
+    // And the box shut, over the pizza.
+    if (shutIn > 0.001 && shut !== open) {
+      ctx.globalAlpha = arriving * shutIn
+      ctx.drawImage(shut, left, top, shut.width * k, shut.height * k)
+    }
+
     ctx.restore()
+  }
+
+  /** Where the nth box in the stack stands. */
+  private stackSlot(n: number) {
+    return { x: STACK.x + this.staging, y: STACK.y - n * STACK.step }
+  }
+
+  /** Boxes already ordered, waiting on the counter behind the pizza. */
+  private drawStack(s: SceneState) {
+    const frames = this.assets.boxFrames
+    if (!frames.length || s.stack <= 0) return
+    const { ctx } = this
+    const shut = frames[frames.length - 1]
+    const k = STACK.width / shut.width
+
+    // Bottom of the pile first, so each box overlaps the one under it the way
+    // a stack does.
+    for (let n = 0; n < s.stack; n++) {
+      const slot = this.stackSlot(n)
+      ctx.drawImage(
+        shut,
+        slot.x - (shut.width * k) / 2,
+        slot.y - shut.height * k,
+        shut.width * k,
+        shut.height * k
+      )
+    }
+  }
+
+  /** The fries and the cola, set down beside the stack when they are added. */
+  private drawSides(s: SceneState) {
+    if (s.sides <= 0.001) return
+    const { ctx } = this
+
+    const place = (
+      bmp: ImageBitmap | undefined,
+      at: { x: number; y: number; height: number },
+      delay: number
+    ) => {
+      if (!bmp) return
+      // One lands a moment after the other, so they arrive as two things being
+      // set down rather than as one sprite appearing.
+      const t = clamp01((s.sides - delay) / (1 - delay))
+      if (t <= 0) return
+      const ease = 1 - Math.pow(1 - t, 3)
+      const k = at.height / bmp.height
+      ctx.save()
+      ctx.globalAlpha = t
+      ctx.drawImage(
+        bmp,
+        at.x + this.staging - (bmp.width * k) / 2,
+        at.y - bmp.height * k - (1 - ease) * 90,
+        bmp.width * k,
+        bmp.height * k
+      )
+      ctx.restore()
+    }
+
+    place(this.assets.fries, SIDES.fries, 0)
+    place(this.assets.cola, SIDES.cola, 0.25)
   }
 
   /** A warm bloom over the whole scene, for the moment an order is placed. */
@@ -567,17 +785,18 @@ export class SceneRenderer {
   }
 }
 
-interface Drop {
+interface Piece {
+  /** Which extra it came from, so un-choosing one can take its pieces off. */
+  extra: string
   bmp: ImageBitmap
-  /** Landing spot relative to the pizza centroid, in plate pixels. */
-  tx: number
-  ty: number
+  /** Where it lies on the pizza's own unit disc. */
+  u: number
+  v: number
   delay: number
-  fall: number
   spin: number
   rot: number
   scale: number
   t: number
 }
 
-export { BOX, PROPS }
+export { BOX, STACK, SIDES }
