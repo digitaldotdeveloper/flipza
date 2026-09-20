@@ -34,3 +34,6 @@ frames-src/
 
 # Screenshots in the README are committed; other PNGs are not.
 !docs/*.png
+
+# Deploy worktrees (now built in the temp directory, but older runs left these).
+.deploy*

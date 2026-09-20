@@ -1,8 +1,8 @@
 /**
  * Joins the generated extension onto the real kitchen.
  *
- *   portrait-src/portrait.png  ->  portrait-src/plate-tall.png
- *   oven-src/plate-flameless.png (or sprites-src/plate.png) as the middle
+ *   portrait-src/portrait      ->  portrait-src/plate-tall.webp
+ *   oven-src/plate-flameless (or sprites-src/plate) as the middle
  *                              ->  src/prop-data.json  { plate }
  *
  * Sources are only ever read.
@@ -147,10 +147,12 @@ for (let y = 0; y < MID; y++) {
 }
 
 await mkdir(portraitSrc, { recursive: true })
-const dest = path.join(portraitSrc, 'plate-tall.png')
+// Lossless WebP for the same reason prepare-oven writes one: an intermediate
+// that exists in two formats is an intermediate that goes stale.
+const dest = path.join(portraitSrc, 'plate-tall.webp')
 await sharp(out, { raw: { width: W, height: H, channels: 4 } })
   .removeAlpha()
-  .png()
+  .webp({ lossless: true, effort: 4 })
   .toFile(dest)
 console.log(`portrait: ${W}x${H} -> ${path.relative(root, dest)} (middle from ${path.basename(base)})`)
 

@@ -1,8 +1,8 @@
 /**
  * Turns what gen-oven.mjs generated into the two things the runtime needs.
  *
- *   oven-src/embers.png    ->  oven-src/plate-flameless.png
- *   oven-src/flame-NN.png  ->  public/fire/flame-NN.webp  + src/prop-data.json
+ *   oven-src/embers        ->  oven-src/plate-flameless.webp
+ *   oven-src/flame-NN      ->  public/fire/flame-NN.webp  + src/prop-data.json
  *
  * Sources are only ever read.
  *
@@ -35,7 +35,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const ovenSrc = path.join(root, 'oven-src')
 const fireOut = path.join(root, 'public', 'fire')
 const spriteSrc = path.join(root, 'sprites-src')
-const platePatched = path.join(ovenSrc, 'plate-flameless.png')
+// Written as lossless WebP, not PNG, and deliberately: it is an intermediate
+// that every later script looks up by name, and leaving one of each behind
+// means the next run picks whichever the lookup happens to prefer - which is
+// the stale one as often as not.
+const platePatched = path.join(ovenSrc, 'plate-flameless.webp')
 const propData = path.join(root, 'src', 'prop-data.json')
 
 /** Output size of one flame frame, in pixels. 2x the rect, for a 4K display. */
@@ -148,9 +152,16 @@ function measureFlame({ data, width: w, height: h }) {
 }
 
 async function buildFlames() {
-  const files = (await readdir(ovenSrc))
-    .filter((f) => /^flame-\d+\.(?:png|webp)$/.test(f))
-    .sort()
+  // One entry per flame, not one per file: after a conversion the same frame
+  // exists as both a PNG and a WebP, and taking both builds every frame of the
+  // fire twice - which halves its speed and doubles the download.
+  const seen = new Map()
+  for (const f of (await readdir(ovenSrc)).sort()) {
+    const m = /^(flame-\d+)\.(png|webp)$/.exec(f)
+    if (!m) continue
+    if (m[2] === 'webp' || !seen.has(m[1])) seen.set(m[1], f)
+  }
+  const files = [...seen.values()]
   if (!files.length) {
     console.log('fire: no flame sources yet')
     return null
@@ -318,7 +329,7 @@ async function buildPlate() {
   const patch = await sharp(out, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer()
   await sharp(plateSrc)
     .composite([{ input: patch, left: CONTEXT.left, top: CONTEXT.top }])
-    .png()
+    .webp({ lossless: true, effort: 4 })
     .toFile(platePatched)
   console.log(`plate: ${path.relative(root, platePatched)}`)
   return true

@@ -19,12 +19,22 @@
  */
 import { execFileSync } from 'node:child_process'
 import { cp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dist = path.join(root, 'dist')
-const tree = path.join(root, '.deploy')
+
+/**
+ * The worktree is built outside the project, and under a fresh name each run.
+ *
+ * Inside it, a directory Windows has marked delete-pending - which is what a
+ * lingering file handle on a freshly deleted tree looks like - cannot be
+ * removed *or* recreated, and every later deploy fails on the leftover. A path
+ * nothing else will ever touch sidesteps the whole class of problem.
+ */
+const tree = path.join(os.tmpdir(), `flipza-deploy-${Date.now().toString(36)}`)
 const BRANCH = 'gh-pages'
 
 const git = (...args) =>
@@ -37,9 +47,8 @@ try {
   process.exit(1)
 }
 
-// A worktree left behind by an interrupted deploy would make `worktree add`
-// fail, and it holds no state worth keeping.
-await rm(tree, { recursive: true, force: true })
+// Worktrees from interrupted runs are registered but gone; git refuses to add
+// a new one while it still believes in them.
 try {
   git('worktree', 'prune')
 } catch {
@@ -87,4 +96,9 @@ if (!changed) {
   console.log(`deploy: pushed ${BRANCH} from ${rev}`)
 }
 
-execFileSync('git', ['worktree', 'remove', '--force', tree], { cwd: root, stdio: 'ignore' })
+try {
+  execFileSync('git', ['worktree', 'remove', '--force', tree], { cwd: root, stdio: 'ignore' })
+} catch {
+  // The push is what mattered and it is done. A worktree that will not go
+  // quietly is left for `git worktree prune` to forget about next time.
+}
